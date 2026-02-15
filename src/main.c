@@ -10,6 +10,7 @@ typedef struct {
   const char *message;
   const char *data_file_path;
   const char *output_file_path;
+  int print_data;
 } cli_options_t;
 
 static void
@@ -17,8 +18,8 @@ print_usage(void)
 {
   fprintf(stderr,
     "Usage:\n"
-    "  stegify embed <image_path> (-m <secret_message> | -s <data_file_path>) -o <output_image_path>\n"
-    "  stegify extract <image_path> [-o <output_file_path>]\n"
+    "  stegify embed <image_path> (-m <data_as_string> | -s <data_file_path>) -o <output_image_path> [-p]\n"
+    "  stegify extract <image_path> [-o <output_file_path>] [-p]\n"
     "  stegify size <image_path>\n");
 }
 
@@ -150,6 +151,11 @@ parse_embed_options(int argc, char **argv, cli_options_t *options)
       continue;
     }
 
+    if (strcmp(argv[i], "-p") == 0) {
+      options->print_data = 1;
+      continue;
+    }
+
     return 0;
   }
 
@@ -173,6 +179,11 @@ parse_extract_options(int argc, char **argv, cli_options_t *options)
       if (i + 1 >= argc || options->output_file_path != NULL)
         return 0;
       options->output_file_path = argv[++i];
+      continue;
+    }
+
+    if (strcmp(argv[i], "-p") == 0) {
+      options->print_data = 1;
       continue;
     }
 
@@ -240,19 +251,20 @@ handle_embed(const char *image_path, const cli_options_t *options)
     return 1;
   }
 
+  max_capacity = stegify_get_max_capacity(&image);
+  fprintf(stderr,
+    "Embed completed: %zu bytes embedded into '%s' and saved to '%s' (capacity remaining: %zu bytes).\n",
+    payload_size, image_path, options->output_file_path, max_capacity - payload_size);
+
+  if (options->print_data) {
+    fprintf(stderr, "Embedded payload (hex+ASCII):\n");
+    print_hex_ascii_table(
+      options->message != NULL ? (const uint8_t *)options->message : payload,
+      payload_size);
+  }
+
   if (options->data_file_path != NULL)
     free(payload);
-
-  max_capacity = stegify_get_max_capacity(&image);
-  if (options->message != NULL) {
-    fprintf(stderr,
-      "Embed completed: %zu bytes from message embedded into '%s' and saved to '%s' (capacity: %zu bytes).\n",
-      payload_size, image_path, options->output_file_path, max_capacity);
-  } else {
-    fprintf(stderr,
-      "Embed completed: %zu bytes from file '%s' embedded into '%s' and saved to '%s' (capacity: %zu bytes).\n",
-      payload_size, options->data_file_path, image_path, options->output_file_path, max_capacity);
-  }
 
   stegify_image_free(&image);
   return 0;
@@ -312,15 +324,15 @@ handle_extract(const char *image_path, const cli_options_t *options)
     fprintf(stderr,
       "Extract completed: %u bytes extracted from '%s' and saved to '%s'.\n",
       data_size, image_path, options->output_file_path);
-  } else if (data_size > 0) {
-    fprintf(stderr,
-      "Extract completed: %u bytes extracted from '%s'.\nOutput is shown below as hex+ASCII.\n",
-      data_size, image_path);
-    print_hex_ascii_table(buffer, data_size);
   } else {
     fprintf(stderr,
-      "Extract completed: 0 bytes extracted from '%s'.\n",
-      image_path);
+      "Extract completed: %u bytes extracted from '%s'.\n",
+      data_size, image_path);
+  }
+
+  if (options->print_data && data_size > 0) {
+    fprintf(stderr, "Extracted payload (hex+ASCII):\n");
+    print_hex_ascii_table(buffer, data_size);
   }
 
   free(buffer);
