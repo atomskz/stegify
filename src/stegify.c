@@ -184,6 +184,7 @@ stegify_embed(
     uint32_t data_size,
     int attributes)
 {
+  size_t max_capacity;
   size_t total_bytes;
   size_t required_bits;
   stegify_position_iter_t iter;
@@ -194,10 +195,18 @@ stegify_embed(
   if (data_size == 0)
     return STEGIFY_ERR_INVALID_INPUT;
 
-  if (data_size > stegify_get_max_capacity(image))
+  total_bytes = (size_t)image->width * image->height * image->channels;
+  max_capacity = total_bytes / BITS_IN_BYTE;
+
+  if (attributes & STEGIFY_ATTR_WITH_SIZE) {
+    if (max_capacity < sizeof(data_size))
+      return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
+    max_capacity -= sizeof(data_size);
+  }
+
+  if (data_size > max_capacity)
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
 
-  total_bytes = (size_t)image->width * image->height * image->channels;
   required_bits = data_size * BITS_IN_BYTE;
 
   if (attributes & STEGIFY_ATTR_WITH_SIZE)
@@ -250,6 +259,8 @@ stegify_extract(
   uint32_t *data_size,
   int attributes)
 {
+  size_t total_bytes;
+  size_t required_bits;
   size_t out_buffer_size;
   stegify_position_iter_t iter;
 
@@ -262,11 +273,19 @@ stegify_extract(
   stegify_iter_init(&iter);
     
   out_buffer_size = *data_size;
+  total_bytes = (size_t)image->width * image->height * image->channels;
 
   if (attributes & STEGIFY_ATTR_WITH_SIZE)
     stegify_read_buffer_from_image_lsb((uint8_t *)data_size, sizeof(*data_size), image->data, &iter);
 
   if (*data_size > out_buffer_size)
+    return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
+
+  required_bits = (size_t)(*data_size) * BITS_IN_BYTE;
+  if (attributes & STEGIFY_ATTR_WITH_SIZE)
+    required_bits += sizeof(*data_size) * BITS_IN_BYTE;
+
+  if (required_bits > total_bytes)
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
 
   stegify_read_buffer_from_image_lsb(data, *data_size, image->data, &iter);

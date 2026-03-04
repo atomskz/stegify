@@ -21,7 +21,7 @@
 - Встроить содержимое файла в изображение.
 - Извлечь данные из изображения:
   - в файл;
-  - в консоль в виде hex+ASCII таблицы.
+  - в консоль в виде hex+ASCII таблицы (по флагу `-p`).
 - Узнать максимальную ёмкость изображения для полезной нагрузки (`size`).
 
 ## Структура проекта
@@ -54,8 +54,8 @@ cmake --build build
 ## Использование CLI
 
 ```text
-stegify embed <image_path> (-m <secret_message> | -s <data_file_path>) -o <output_image_path>
-stegify extract <image_path> [-o <output_file_path>]
+stegify embed <image_path> (-m <secret_message> | -f <data_file_path>) -o <output_image_path> [-p] [-n]
+stegify extract <image_path> [-o <output_file_path>] [-p] [-s <size>]
 stegify size <image_path>
 ```
 
@@ -74,12 +74,13 @@ stegify size <image_path>
 ### 2) Встроить данные из файла
 
 ```bash
-./build/stegify embed input.png -s /path/to/data.bin -o output.png
+./build/stegify embed input.png -f /path/to/data.bin -o output.png
 ```
 
 Ограничения:
-- `-m` и `-s` взаимоисключающие;
+- `-m` и `-f` взаимоисключающие;
 - обязательно указывать `-o` для `embed`.
+- `-n` отключает запись размера payload в стегоконтейнер.
 
 ### 3) Извлечь в файл
 
@@ -87,13 +88,14 @@ stegify size <image_path>
 ./build/stegify extract output.png -o extracted.bin
 ```
 
-### 4) Извлечь в консоль
+### 4) Извлечь данные в консоль (hex+ASCII)
 
 ```bash
-./build/stegify extract output.png
+./build/stegify extract output.png -p
 ```
 
-Вывод будет в формате hex-таблицы с параллельным ASCII-представлением, например:
+Без `-p` команда `extract` выводит только служебную информацию о результате.
+При `-p` выводится формат hex-таблицы с параллельным ASCII-представлением, например:
 
 ```text
 00000000  48 65 6c 6c 6f 2c 20 73  74 65 67 69 66 79 21     |Hello, stegify!|
@@ -130,6 +132,8 @@ stegify size <image_path>
 
 Где:
 - `-4` — резерв под хранение `uint32_t` размера в режиме `STEGIFY_ATTR_WITH_SIZE`.
+- при `embed -n` резерв под размер не используется.
+- при `extract -s <size>` размер берется из флага, а не из контейнера.
 
 ## Публичный API библиотеки
 
@@ -169,7 +173,7 @@ stegify size <image_path>
 ./build/stegify size cover.png
 
 # 2) Встраиваем файл
-./build/stegify embed cover.png -s secret.bin -o stego.png
+./build/stegify embed cover.png -f secret.bin -o stego.png
 
 # 3) Извлекаем обратно
 ./build/stegify extract stego.png -o restored.bin

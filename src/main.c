@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <errno.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +12,9 @@ typedef struct {
   const char *data_file_path;
   const char *output_file_path;
   int print_data;
+  int no_size_header;
+  uint32_t extract_size;
+  int has_extract_size;
 } cli_options_t;
 
 static void
@@ -18,8 +22,8 @@ print_usage(void)
 {
   fprintf(stderr,
     "Usage:\n"
-    "  stegify embed <image_path> (-m <data_as_string> | -s <data_file_path>) -o <output_image_path> [-p]\n"
-    "  stegify extract <image_path> [-o <output_file_path>] [-p]\n"
+    "  stegify embed <image_path> (-m <data_as_string> | -f <data_file_path>) -o <output_image_path> [-p] [-n]\n"
+    "  stegify extract <image_path> [-o <output_file_path>] [-p] [-s <size>]\n"
     "  stegify size <image_path>\n");
 }
 
@@ -125,6 +129,43 @@ print_hex_ascii_table(const uint8_t *data, size_t size)
 }
 
 static int
+parse_u32(const char *value, uint32_t *result)
+{
+  char *end;
+  unsigned long parsed;
+
+  if (value == NULL || result == NULL)
+    return 0;
+
+  errno = 0;
+  parsed = strtoul(value, &end, 10);
+  if (errno != 0 || end == value || *end != '\0' || parsed > UINT32_MAX)
+    return 0;
+
+  *result = (uint32_t)parsed;
+  return 1;
+}
+
+static size_t
+get_effective_capacity(const stegify_image_t *image, int with_size_header)
+{
+  size_t total_bytes;
+
+  if (image == NULL || image->data == NULL)
+    return 0;
+
+  total_bytes = (size_t)image->width * image->height * image->channels;
+
+  if (with_size_header) {
+    if (total_bytes / 8 < sizeof(uint32_t))
+      return 0;
+    return (total_bytes / 8) - sizeof(uint32_t);
+  }
+
+  return total_bytes / 8;
+}
+
+static int
 parse_embed_options(int argc, char **argv, cli_options_t *options)
 {
   int i;
@@ -137,7 +178,7 @@ parse_embed_options(int argc, char **argv, cli_options_t *options)
       continue;
     }
 
-    if (strcmp(argv[i], "-s") == 0) {
+    if (strcmp(argv[i], "-f") == 0) {
       if (i + 1 >= argc || options->message != NULL || options->data_file_path != NULL)
         return 0;
       options->data_file_path = argv[++i];
@@ -153,6 +194,11 @@ parse_embed_options(int argc, char **argv, cli_options_t *options)
 
     if (strcmp(argv[i], "-p") == 0) {
       options->print_data = 1;
+      continue;
+    }
+
+    if (strcmp(argv[i], "-n") == 0) {
+      options->no_size_header = 1;
       continue;
     }
 
@@ -187,6 +233,15 @@ parse_extract_options(int argc, char **argv, cli_options_t *options)
       continue;
     }
 
+    if (strcmp(argv[i], "-s") == 0) {
+      if (i + 1 >= argc || options->has_extract_size)
+        return 0;
+      if (!parse_u32(argv[++i], &options->extract_size) || options->extract_size == 0)
+        return 0;
+      options->has_extract_size = 1;
+      continue;
+    }
+
     return 0;
   }
 
@@ -201,6 +256,7 @@ handle_embed(const char *image_path, const cli_options_t *options)
   uint8_t *payload;
   size_t payload_size;
   size_t max_capacity;
+  int attributes;
   int ok;
 
   memset(&image, 0, sizeof(image));
@@ -233,7 +289,8 @@ handle_embed(const char *image_path, const cli_options_t *options)
     return 1;
   }
 
-  status = stegify_embed(&image, payload, (uint32_t)payload_size, STEGIFY_ATTR_WITH_SIZE);
+  attributes = options->no_size_header ? 0 : STEGIFY_ATTR_WITH_SIZE;
+  status = stegify_embed(&image, payload, (uint32_t)payload_size, attributes);
   if (status != STEGIFY_OK) {
     fprintf(stderr, "Failed to embed data: %s\n", stegify_error_string(status));
     if (options->data_file_path != NULL)
@@ -251,10 +308,11 @@ handle_embed(const char *image_path, const cli_options_t *options)
     return 1;
   }
 
-  max_capacity = stegify_get_max_capacity(&image);
+  max_capacity = get_effective_capacity(&image, !options->no_size_header);
   fprintf(stderr,
-    "Embed completed: %zu bytes embedded into '%s' and saved to '%s' (capacity remaining: %zu bytes).\n",
-    payload_size, image_path, options->output_file_path, max_capacity - payload_size);
+    "Embed completed: %zu bytes embedded into '%s' and saved to '%s' (capacity remaining: %zu bytes, size header: %s).\n",
+    payload_size, image_path, options->output_file_path, max_capacity - payload_size,
+    options->no_size_header ? "disabled" : "enabled");
 
   if (options->print_data) {
     fprintf(stderr, "Embedded payload (hex+ASCII):\n");
@@ -278,6 +336,7 @@ handle_extract(const char *image_path, const cli_options_t *options)
   size_t max_capacity;
   uint8_t *buffer;
   uint32_t data_size;
+  int attributes;
   int ok;
 
   memset(&image, 0, sizeof(image));
@@ -289,22 +348,30 @@ handle_extract(const char *image_path, const cli_options_t *options)
     return 1;
   }
 
-  max_capacity = stegify_get_max_capacity(&image);
+  max_capacity = get_effective_capacity(&image, !options->has_extract_size);
   if (max_capacity == 0 || max_capacity > UINT32_MAX) {
     fprintf(stderr, "Invalid image capacity.\n");
     stegify_image_free(&image);
     return 1;
   }
 
-  buffer = (uint8_t *)malloc(max_capacity);
+  if (options->has_extract_size && options->extract_size > max_capacity) {
+    fprintf(stderr, "Requested extract size exceeds image capacity.\n");
+    stegify_image_free(&image);
+    return 1;
+  }
+
+  data_size = options->has_extract_size ? options->extract_size : (uint32_t)max_capacity;
+  buffer = (uint8_t *)malloc(data_size == 0 ? 1 : data_size);
   if (buffer == NULL) {
     fprintf(stderr, "Failed to allocate extraction buffer.\n");
     stegify_image_free(&image);
     return 1;
   }
 
-  data_size = (uint32_t)max_capacity;
-  status = stegify_extract(&image, buffer, &data_size, STEGIFY_ATTR_WITH_SIZE);
+  attributes = options->has_extract_size ? 0 : STEGIFY_ATTR_WITH_SIZE;
+
+  status = stegify_extract(&image, buffer, &data_size, attributes);
   if (status != STEGIFY_OK) {
     fprintf(stderr, "Failed to extract data: %s\n", stegify_error_string(status));
     free(buffer);
@@ -322,12 +389,13 @@ handle_extract(const char *image_path, const cli_options_t *options)
     }
 
     fprintf(stderr,
-      "Extract completed: %u bytes extracted from '%s' and saved to '%s'.\n",
-      data_size, image_path, options->output_file_path);
+      "Extract completed: %u bytes extracted from '%s' and saved to '%s' (size source: %s).\n",
+      data_size, image_path, options->output_file_path,
+      options->has_extract_size ? "flag -s" : "container header");
   } else {
     fprintf(stderr,
-      "Extract completed: %u bytes extracted from '%s'.\n",
-      data_size, image_path);
+      "Extract completed: %u bytes extracted from '%s' (size source: %s).\n",
+      data_size, image_path, options->has_extract_size ? "flag -s" : "container header");
   }
 
   if (options->print_data && data_size > 0) {
