@@ -5,7 +5,7 @@ images using the LSB (Least Significant Bit) method.
 
 The project consists of:
 - a CLI tool (`src/main.c`) for everyday use;
-- a library (`src/stegify.c`, `src/stegify.h`) with an API for loading/saving
+- a library (`src/stegify_core.c`, `src/stegify_core.h`) with an API for loading/saving
   images and performing the steganography operations;
 - the `stb_image`/`stb_image_write` translation unit (`src/stbi_impl.c`) for
   reading and writing PNG and BMP.
@@ -39,7 +39,7 @@ The code is split into layers so that alternative frontends (such as a GUI) can
 reuse the application logic without touching the terminal code:
 
 - `CMakeLists.txt` — CMake build.
-- `src/stegify.h` / `src/stegify.c` — core library: the LSB algorithm and image I/O.
+- `src/stegify_core.h` / `src/stegify_core.c` — core library: the LSB algorithm and image I/O.
 - `src/stegify_app.h` / `src/stegify_app.c` — application layer: UI-agnostic file
   workflows (embed, extract, capacity, file read/write) built on the core. Returns
   status codes and data; it never reads arguments, prints, or exits.
@@ -180,7 +180,7 @@ Run `stegify size <image>` to see the exact capacity for both modes.
 
 ## Public library API
 
-Declared in `src/stegify.h`.
+Declared in `src/stegify_core.h`.
 
 Key functions:
 - `stegify_image_load(...)` — load an image.
@@ -205,7 +205,7 @@ A compilable version of this example lives in `examples/usage.c`.
 #include <stdio.h>
 #include <string.h>
 
-#include "stegify.h"
+#include "stegify_core.h"
 
 int embed_example(void)
 {

@@ -4,7 +4,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#include "stegify.h"
+#include "stegify_core.h"
 
 /*
  * Application/operations layer: UI-agnostic building blocks shared by the CLI

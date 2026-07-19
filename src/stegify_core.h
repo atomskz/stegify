@@ -1,5 +1,5 @@
-#ifndef STEGIFY_H
-#define STEGIFY_H
+#ifndef STEGIFY_CORE_H
+#define STEGIFY_CORE_H
 
 #include <stddef.h>
 #include <stdint.h>

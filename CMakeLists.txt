@@ -61,7 +61,7 @@ endif()
 # Use the portable C99 fopen without MSVC's non-standard "unsafe" deprecation.
 set(STEGIFY_MSVC_DEFS $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>)
 
-add_library(stegify_core STATIC src/stegify.c)
+add_library(stegify_core STATIC src/stegify_core.c)
 target_include_directories(stegify_core PUBLIC src)
 target_link_libraries(stegify_core PUBLIC stb_image)
 target_compile_options(stegify_core PRIVATE ${STEGIFY_WARNING_FLAGS})
@@ -93,7 +93,7 @@ install(TARGETS stegify stegify_core stegify_app stb_image
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES src/stegify.h src/stegify_app.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES src/stegify_core.h src/stegify_app.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 enable_testing()
 
