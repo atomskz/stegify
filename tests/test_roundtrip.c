@@ -158,6 +158,25 @@ test_tiny_image_embed(void)
 }
 
 static void
+test_tiny_image_extract(void)
+{
+  stegify_image_t img;
+  uint8_t out[16];
+  uint32_t outsize;
+  stegify_status_t s;
+
+  /* 2x2x1 = 4 bytes cannot hold the 4-byte size header; extract must reject
+   * it up front rather than read past the image buffer (regression for the
+   * out-of-bounds header read). */
+  img = make_image(2, 2, 1);
+  outsize = sizeof(out);
+  s = stegify_extract(&img, out, &outsize, STEGIFY_ATTR_WITH_SIZE);
+  CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY, "tiny image header-mode extract is rejected");
+
+  free_image(&img);
+}
+
+static void
 test_invalid_input(void)
 {
   stegify_image_t img;
@@ -242,6 +261,7 @@ static const struct test_case TESTS[] = {
   { "capacity_boundary", test_capacity_boundary },
   { "zero_payload", test_zero_payload },
   { "tiny_image_embed", test_tiny_image_embed },
+  { "tiny_image_extract", test_tiny_image_extract },
   { "invalid_input", test_invalid_input },
   { "png_file", test_png_file },
   { "bmp_file", test_bmp_file }

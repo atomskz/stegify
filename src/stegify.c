@@ -268,6 +268,12 @@ stegify_extract(
   out_buffer_size = *data_size;
   total_bytes = (size_t)image->width * image->height * image->channels;
 
+  /* The size header occupies one LSB per image byte; refuse to read it from
+   * an image too small to hold it, otherwise the read runs past the buffer. */
+  if ((attributes & STEGIFY_ATTR_WITH_SIZE) &&
+      total_bytes < sizeof(*data_size) * BITS_IN_BYTE)
+    return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
+
   if (attributes & STEGIFY_ATTR_WITH_SIZE)
     stegify_read_buffer_from_image_lsb((uint8_t *)data_size, sizeof(*data_size), image->data, &iter);
 

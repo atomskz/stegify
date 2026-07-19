@@ -64,6 +64,7 @@ foreach(case
     capacity_boundary
     zero_payload
     tiny_image_embed
+    tiny_image_extract
     invalid_input
     png_file
     bmp_file)
