@@ -37,6 +37,18 @@ FetchContent_MakeAvailable(stb)
 add_library(stb_image STATIC src/stbi_impl.c)
 target_include_directories(stb_image SYSTEM PUBLIC ${stb_SOURCE_DIR})
 
+# Optional sanitizer build. Applied to targets declared after this point
+# (first-party code and tests); the stb target above stays uninstrumented.
+option(STEGIFY_SANITIZE "Build first-party targets with sanitizers" OFF)
+if(STEGIFY_SANITIZE)
+  if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+    add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all)
+    add_link_options(-fsanitize=address,undefined)
+  elseif(MSVC)
+    add_compile_options(/fsanitize=address)
+  endif()
+endif()
+
 # Use the portable C99 fopen without MSVC's non-standard "unsafe" deprecation.
 set(STEGIFY_MSVC_DEFS $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>)
 
