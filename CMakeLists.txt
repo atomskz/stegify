@@ -69,6 +69,15 @@ target_link_libraries(example_usage PRIVATE stegify_core)
 target_compile_options(example_usage PRIVATE ${STEGIFY_WARNING_FLAGS})
 target_compile_definitions(example_usage PRIVATE ${STEGIFY_MSVC_DEFS})
 
+# Install the CLI, the core library (with its stb dependency), and the header
+# so the library is consumable by other projects.
+include(GNUInstallDirs)
+install(TARGETS stegify stegify_core stb_image
+  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
+install(FILES src/stegify.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
 enable_testing()
 
 add_executable(test_roundtrip tests/test_roundtrip.c)
