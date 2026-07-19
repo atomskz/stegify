@@ -333,6 +333,8 @@ stegify_error_string(stegify_status_t status)
     return "unsupported format";
   case STEGIFY_ERR_INSUFFICIENT_CAPACITY:
     return "insufficient capacity";
+  case STEGIFY_ERR_MEMORY_ALLOC:
+    return "memory allocation failed";
   case STEGIFY_ERR_FILE_IO:
     return "file i/o error";
   case STEGIFY_ERR_CORRUPTED_DATA:

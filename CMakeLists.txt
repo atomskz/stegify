@@ -67,6 +67,14 @@ target_link_libraries(stegify_core PUBLIC stb_image)
 target_compile_options(stegify_core PRIVATE ${STEGIFY_WARNING_FLAGS})
 target_compile_definitions(stegify_core PRIVATE ${STEGIFY_MSVC_DEFS})
 
+# UI-agnostic application/operations layer shared by the CLI and future
+# frontends (e.g. a GUI). Built on the core; performs no I/O of its own beyond
+# the file workflows it exposes.
+add_library(stegify_app STATIC src/stegify_app.c)
+target_link_libraries(stegify_app PUBLIC stegify_core)
+target_compile_options(stegify_app PRIVATE ${STEGIFY_WARNING_FLAGS})
+target_compile_definitions(stegify_app PRIVATE ${STEGIFY_MSVC_DEFS})
+
 add_executable(stegify src/main.c)
 target_link_libraries(stegify PRIVATE stegify_core)
 target_compile_options(stegify PRIVATE ${STEGIFY_WARNING_FLAGS})
@@ -81,11 +89,11 @@ target_compile_definitions(example_usage PRIVATE ${STEGIFY_MSVC_DEFS})
 # Install the CLI, the core library (with its stb dependency), and the header
 # so the library is consumable by other projects.
 include(GNUInstallDirs)
-install(TARGETS stegify stegify_core stb_image
+install(TARGETS stegify stegify_core stegify_app stb_image
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES src/stegify.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+install(FILES src/stegify.h src/stegify_app.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 enable_testing()
 
@@ -109,6 +117,20 @@ foreach(case
     png_file
     bmp_file)
   add_test(NAME ${case} COMMAND test_roundtrip ${case})
+endforeach()
+
+add_executable(test_app tests/test_app.c)
+target_link_libraries(test_app PRIVATE stegify_app)
+target_compile_options(test_app PRIVATE ${STEGIFY_WARNING_FLAGS})
+target_compile_definitions(test_app PRIVATE ${STEGIFY_MSVC_DEFS})
+
+foreach(case
+    file_io
+    app_roundtrip
+    app_roundtrip_no_header
+    app_capacity
+    app_no_payload)
+  add_test(NAME ${case} COMMAND test_app ${case})
 endforeach()
 
 add_test(
