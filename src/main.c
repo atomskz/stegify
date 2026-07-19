@@ -469,8 +469,8 @@ handle_size(const char *image_path)
 {
   stegify_image_t image;
   stegify_status_t status;
-  size_t max_capacity;
-  double max_capacity_mb;
+  size_t cap_header;
+  size_t cap_raw;
 
   memset(&image, 0, sizeof(image));
 
@@ -480,9 +480,10 @@ handle_size(const char *image_path)
     return 1;
   }
 
-  max_capacity = stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE);
-  max_capacity_mb = (double)max_capacity / (1024.0 * 1024.0);
-  printf("%zu bytes (%.3f MB)\n", max_capacity, max_capacity_mb);
+  cap_header = stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE);
+  cap_raw = stegify_get_max_capacity(&image, 0);
+  printf("capacity: %zu bytes with size header, %zu bytes with -n (%.3f MiB)\n",
+    cap_header, cap_raw, (double)cap_header / (1024.0 * 1024.0));
 
   stegify_image_free(&image);
   return 0;
