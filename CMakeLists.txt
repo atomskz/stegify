@@ -23,4 +23,4 @@ target_include_directories(stegify_core PUBLIC src)
 target_include_directories(stegify_core SYSTEM PUBLIC ${stb_SOURCE_DIR})
 
 add_executable(stegify src/main.c)
-target_link_libraries(stegify PRIVATE stegify_core m)
+target_link_libraries(stegify PRIVATE stegify_core)
