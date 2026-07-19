@@ -37,6 +37,15 @@ FetchContent_MakeAvailable(stb)
 add_library(stb_image STATIC src/stbi_impl.c)
 target_include_directories(stb_image SYSTEM PUBLIC ${stb_SOURCE_DIR})
 
+# stb's image code calls pow(), which lives in a separate math library on some
+# platforms (Linux/glibc). Link it where it exists as a standalone library and
+# let it propagate to consumers; MSVC has no separate libm and macOS provides
+# the math functions through libSystem.
+find_library(STEGIFY_M_LIBRARY m)
+if(STEGIFY_M_LIBRARY)
+  target_link_libraries(stb_image PUBLIC ${STEGIFY_M_LIBRARY})
+endif()
+
 # Optional sanitizer build. Applied to targets declared after this point
 # (first-party code and tests); the stb target above stays uninstrumented.
 option(STEGIFY_SANITIZE "Build first-party targets with sanitizers" OFF)
