@@ -20,10 +20,14 @@ set(STEGIFY_WARNING_FLAGS
 
 include(FetchContent)
 
+# stb publishes no tagged releases, so pin an exact commit for reproducible
+# builds. Pinned 2026-07-19; bump deliberately after verifying the new revision.
+# (GIT_SHALLOW is intentionally omitted: a shallow clone cannot resolve an
+# arbitrary commit hash, only a branch or tag.)
 FetchContent_Declare(
   stb
   GIT_REPOSITORY https://github.com/nothings/stb.git
-  GIT_TAG master
+  GIT_TAG 31c1ad37456438565541f4919958214b6e762fb4
 )
 
 FetchContent_MakeAvailable(stb)
