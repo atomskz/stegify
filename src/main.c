@@ -133,8 +133,17 @@ parse_u32(const char *value, uint32_t *result)
 {
   char *end;
   unsigned long parsed;
+  const char *p;
 
   if (value == NULL || result == NULL)
+    return 0;
+
+  /* strtoul silently maps a leading '-' to a large unsigned value, so reject
+   * negative input explicitly before parsing. */
+  p = value;
+  while (isspace((unsigned char)*p))
+    p++;
+  if (*p == '-')
     return 0;
 
   errno = 0;
