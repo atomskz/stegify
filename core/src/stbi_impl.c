@@ -18,8 +18,14 @@
  * status codes), so leave them out of the build. */
 #define STBI_NO_FAILURE_STRINGS
 
+/* All file access lives in the operations layer: the core feeds stb an
+ * in-memory buffer and drains the encoder through a callback, so stb never
+ * touches paths or stdio. */
+#define STBI_NO_STDIO
+
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
 
+#define STBI_WRITE_NO_STDIO
 #define STB_IMAGE_WRITE_IMPLEMENTATION
 #include "stb_image_write.h"

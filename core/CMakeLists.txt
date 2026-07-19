@@ -53,7 +53,7 @@ foreach(case
     tiny_image_extract
     invalid_input
     load_errors
-    encoder_from_output_path
+    export_format
     png_file
     bmp_file)
   add_test(NAME ${case} COMMAND test_roundtrip ${case})
@@ -63,8 +63,9 @@ add_executable(test_ops tests/test_ops.c)
 target_link_libraries(test_ops PRIVATE stegify_core)
 stegify_configure_target(test_ops)
 foreach(case
-    file_io
     ops_roundtrip
+    ops_file_workflow
+    ops_output_format
     ops_capacity
     ops_no_payload)
   add_test(NAME ${case} COMMAND test_ops ${case})

@@ -170,12 +170,21 @@ Run `stegify size <image>` to see the exact capacity.
 
 ## Public library API
 
-Declared in `core/include/stegify/core.h` (included as `<stegify/core.h>`).
+The operations layer in `core/include/stegify/ops.h` (included as
+`<stegify/ops.h>`) is the path-based entry point and owns all file access. The
+in-memory codec in `core/include/stegify/core.h` sits underneath it and does no
+file I/O.
 
-Key functions:
-- `stegify_image_load(...)` — load an image.
-- `stegify_image_save(...)` — save an image (encoder chosen from the output path).
-- `stegify_image_free(...)` — free the image buffer.
+Operations layer (`<stegify/ops.h>`):
+- `stegify_ops_embed(...)` — embed an in-memory payload into an image and save it.
+- `stegify_ops_embed_file(...)` — embed the contents of a file into an image.
+- `stegify_ops_extract(...)` — extract a payload to a file and/or a buffer.
+- `stegify_ops_capacity(...)` — maximum payload capacity of an image.
+
+Core codec (`<stegify/core.h>`), for callers that manage their own bytes:
+- `stegify_image_load(...)` — decode an image from an in-memory buffer.
+- `stegify_image_export(...)` — encode an image, delivering the bytes to a callback.
+- `stegify_image_free(...)` — free the decoded pixel buffer.
 - `stegify_get_max_capacity(image)` — maximum payload capacity of the image.
 - `stegify_embed(...)` — embed data.
 - `stegify_extract(...)` — extract data. `*data_size` is in/out: the caller sets it
@@ -190,50 +199,34 @@ A compilable version of this example lives in `core/examples/usage.c`.
 ```c
 #include <stdint.h>
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
-#include "stegify/core.h"
+#include "stegify/ops.h"
 
 int embed_example(void)
 {
-  stegify_image_t image;
   const char *payload = "hidden message";
-  uint32_t payload_size = (uint32_t)strlen(payload);
   stegify_status_t status;
 
-  if (stegify_image_load("cover.png", &image) != STEGIFY_OK)
-    return 1;
-
-  if (payload_size > stegify_get_max_capacity(&image)) {
-    stegify_image_free(&image);
-    return 1;
-  }
-
-  status = stegify_embed(&image, (const uint8_t *)payload, payload_size);
-  if (status == STEGIFY_OK)
-    status = stegify_image_save("stego.png", &image);
-
-  stegify_image_free(&image);
+  status = stegify_ops_embed("cover.png", (const uint8_t *)payload,
+    strlen(payload), "stego.png", NULL);
   return status == STEGIFY_OK ? 0 : 1;
 }
 
 int extract_example(void)
 {
-  stegify_image_t image;
-  uint8_t buffer[4096];
-  uint32_t size = sizeof(buffer); /* in: buffer capacity, out: bytes extracted */
+  uint8_t *payload;
+  uint32_t size;
   stegify_status_t status;
 
-  if (stegify_image_load("stego.png", &image) != STEGIFY_OK)
-    return 1;
-
-  status = stegify_extract(&image, buffer, &size);
-  stegify_image_free(&image);
-
+  /* out_data is owned by the caller; pass a path instead to write it directly */
+  status = stegify_ops_extract("stego.png", NULL, &payload, &size);
   if (status != STEGIFY_OK)
     return 1;
 
-  fwrite(buffer, 1, size, stdout);
+  fwrite(payload, 1, size, stdout);
+  free(payload);
   return 0;
 }
 ```

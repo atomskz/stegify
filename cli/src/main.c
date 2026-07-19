@@ -180,34 +180,24 @@ parse_extract_options(int argc, char **argv, cli_options_t *options)
 static int
 handle_embed(const char *image_path, const cli_options_t *options)
 {
-  const uint8_t *payload;
-  uint8_t *file_payload;
   size_t payload_size;
   size_t capacity_remaining;
   stegify_status_t status;
 
-  file_payload = NULL;
+  payload_size = 0;
   capacity_remaining = 0;
 
   if (options->message != NULL) {
-    payload = (const uint8_t *)options->message;
     payload_size = strlen(options->message);
+    status = stegify_ops_embed(image_path, (const uint8_t *)options->message,
+      payload_size, options->output_file_path, &capacity_remaining);
   } else {
-    status =
-      stegify_read_file(options->data_file_path, &file_payload, &payload_size);
-    if (status != STEGIFY_OK) {
-      fprintf(stderr, "Failed to read data file '%s': %s\n",
-        options->data_file_path, stegify_error_string(status));
-      return 1;
-    }
-    payload = file_payload;
+    status = stegify_ops_embed_file(image_path, options->data_file_path,
+      options->output_file_path, &payload_size, &capacity_remaining);
   }
 
-  status = stegify_ops_embed(image_path, payload, payload_size,
-    options->output_file_path, &capacity_remaining);
   if (status != STEGIFY_OK) {
     fprintf(stderr, "Failed to embed data: %s\n", stegify_error_string(status));
-    free(file_payload);
     return 1;
   }
 
@@ -215,12 +205,13 @@ handle_embed(const char *image_path, const cli_options_t *options)
     "Embed completed: %zu bytes embedded into '%s' and saved to '%s' (capacity remaining: %zu bytes).\n",
     payload_size, image_path, options->output_file_path, capacity_remaining);
 
-  if (options->print_data) {
+  /* The payload echo is only available for -m, where the CLI holds the bytes;
+   * a -f payload is read inside the operations layer. */
+  if (options->print_data && options->message != NULL) {
     fprintf(stderr, "Embedded payload (hex+ASCII):\n");
-    print_hex_ascii_table(payload, payload_size);
+    print_hex_ascii_table((const uint8_t *)options->message, payload_size);
   }
 
-  free(file_payload);
   return 0;
 }
 
@@ -234,7 +225,10 @@ handle_extract(const char *image_path, const cli_options_t *options)
   buffer = NULL;
   data_size = 0;
 
-  status = stegify_ops_extract(image_path, &buffer, &data_size);
+  /* Ask for the payload buffer only when it is needed for -p; otherwise the
+   * operations layer writes -o (if given) and frees the buffer itself. */
+  status = stegify_ops_extract(image_path, options->output_file_path,
+    options->print_data ? &buffer : NULL, &data_size);
   if (status != STEGIFY_OK) {
     if (status == STEGIFY_ERR_CORRUPTED_DATA)
       fprintf(stderr, "No stegify payload detected in this image.\n");
@@ -244,24 +238,15 @@ handle_extract(const char *image_path, const cli_options_t *options)
     return 1;
   }
 
-  if (options->output_file_path != NULL) {
-    status = stegify_write_file(options->output_file_path, buffer, data_size);
-    if (status != STEGIFY_OK) {
-      fprintf(stderr, "Failed to write output file '%s': %s\n",
-        options->output_file_path, stegify_error_string(status));
-      free(buffer);
-      return 1;
-    }
-
+  if (options->output_file_path != NULL)
     fprintf(stderr,
       "Extract completed: %u bytes extracted from '%s' and saved to '%s'.\n",
       data_size, image_path, options->output_file_path);
-  } else {
+  else
     fprintf(stderr, "Extract completed: %u bytes extracted from '%s'.\n",
       data_size, image_path);
-  }
 
-  if (options->print_data && data_size > 0) {
+  if (options->print_data && buffer != NULL && data_size > 0) {
     fprintf(stderr, "Extracted payload (hex+ASCII):\n");
     print_hex_ascii_table(buffer, data_size);
   }

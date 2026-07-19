@@ -34,26 +34,49 @@ typedef struct {
 } stegify_image_t;
 
 /*
- * Load and decode an image (PNG or BMP) from filepath into image. On success
+ * Sink for encoded image bytes, matching stb's write callback. It is invoked
+ * one or more times with successive chunks of the encoded image (PNG arrives in
+ * a single call, BMP in several), so the callback must append them in order.
+ * size is always non-negative.
+ */
+typedef void (*stegify_write_fn)(void *ctx, void *data, int size);
+
+/*
+ * Detect the image format of an encoded buffer from its leading signature.
+ * Returns STEGIFY_FORMAT_PNG, STEGIFY_FORMAT_BMP, or STEGIFY_FORMAT_UNKNOWN
+ * (NULL, too short, or not one of the supported formats).
+ */
+stegify_image_format_t
+stegify_image_format(const uint8_t *buffer, size_t size);
+
+/*
+ * Decode an encoded image (PNG or BMP) held in buffer into image. The function
+ * does no file I/O: the caller supplies the encoded bytes. On success
  * image->data is owned by the library and must be released with
- * stegify_image_free. Returns STEGIFY_OK, INVALID_INPUT (NULL argument),
- * UNSUPPORTED_FORMAT (extension not PNG/BMP), FILE_IO (cannot open the file),
- * or INVALID_IMAGE (not a decodable image, or larger than the size limit).
+ * stegify_image_free. Returns STEGIFY_OK, INVALID_INPUT (NULL, empty, or a
+ * buffer too large for the decoder), UNSUPPORTED_FORMAT (not PNG/BMP by
+ * signature), or INVALID_IMAGE (not a decodable image, or larger than the size
+ * limit).
  */
 stegify_status_t
-stegify_image_load(const char *filepath, stegify_image_t *image);
+stegify_image_load(const uint8_t *buffer, size_t size, stegify_image_t *image);
 
 /* Free the pixel buffer owned by image and set image->data to NULL. */
 void
 stegify_image_free(stegify_image_t *image);
 
 /*
- * Encode and write image to filepath. The encoder is chosen from the filepath
- * extension (PNG or BMP), independent of how the image was decoded. Returns
- * STEGIFY_OK, INVALID_INPUT, UNSUPPORTED_FORMAT, or FILE_IO.
+ * Encode image and deliver the encoded bytes through cb. The encoder is chosen
+ * from image->format (PNG or BMP). cb is called with successive chunks and the
+ * opaque ctx; where they go (a file, a growing buffer) is the caller's
+ * responsibility. The function does no file I/O and cannot observe a sink
+ * failure, so a caller writing to a file must track that itself through ctx.
+ * Returns STEGIFY_OK, INVALID_INPUT, UNSUPPORTED_FORMAT, or MEMORY_ALLOC (the
+ * encoder failed to allocate).
  */
 stegify_status_t
-stegify_image_save(const char *filepath, const stegify_image_t *image);
+stegify_image_export(
+  const stegify_image_t *image, stegify_write_fn cb, void *ctx);
 
 /*
  * Maximum payload size, in bytes, that fits in image (the fixed header is

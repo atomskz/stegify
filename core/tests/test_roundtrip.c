@@ -2,7 +2,7 @@
  * Library-level tests for the stegify steganography core.
  *
  * Each test drives stegify_embed/stegify_extract (and, for the file tests,
- * stegify_image_save/stegify_image_load) and checks the outcome. Run with a
+ * stegify_image_export/stegify_image_load) and checks the outcome. Run with a
  * single test name to execute just that case (used by CTest), or with no
  * arguments to run the whole suite. Exit code is non-zero if any check fails.
  */
@@ -50,6 +50,72 @@ free_image(stegify_image_t *img)
 {
   free(img->data);
   img->data = NULL;
+}
+
+/* Append the encoded image bytes to the file passed as ctx. */
+static void
+file_sink(void *ctx, void *data, int size)
+{
+  if (size > 0)
+    fwrite(data, 1, (size_t)size, (FILE *)ctx);
+}
+
+/* Encode img (per img->format) and write it to path. */
+static int
+save_image(const char *path, stegify_image_t *img)
+{
+  FILE *file;
+  stegify_status_t s;
+
+  file = fopen(path, "wb");
+  if (file == NULL)
+    return 0;
+
+  s = stegify_image_export(img, file_sink, file);
+  fclose(file);
+  return s == STEGIFY_OK;
+}
+
+/* Read path into memory and decode it into img. */
+static int
+load_image(const char *path, stegify_image_t *img)
+{
+  FILE *file;
+  long size;
+  uint8_t *buffer;
+  size_t read_bytes;
+  stegify_status_t s;
+
+  file = fopen(path, "rb");
+  if (file == NULL)
+    return 0;
+
+  if (fseek(file, 0, SEEK_END) != 0) {
+    fclose(file);
+    return 0;
+  }
+  size = ftell(file);
+  if (size < 0 || fseek(file, 0, SEEK_SET) != 0) {
+    fclose(file);
+    return 0;
+  }
+
+  buffer = (uint8_t *)malloc(size == 0 ? 1 : (size_t)size);
+  if (buffer == NULL) {
+    fclose(file);
+    return 0;
+  }
+
+  read_bytes = fread(buffer, 1, (size_t)size, file);
+  fclose(file);
+  if (read_bytes != (size_t)size) {
+    free(buffer);
+    return 0;
+  }
+
+  s = stegify_image_load(buffer, (size_t)size, img);
+  free(buffer);
+  return s == STEGIFY_OK;
 }
 
 static void
@@ -191,46 +257,50 @@ static void
 test_invalid_input(void)
 {
   stegify_image_t img;
+  const uint8_t junk[16] = { 0 };
+  const uint8_t jpeg[4] = { 0xFF, 0xD8, 0xFF, 0xE0 };
   stegify_status_t s;
 
   memset(&img, 0, sizeof(img));
-  s = stegify_image_load(NULL, &img);
-  CHECK(s == STEGIFY_ERR_INVALID_INPUT, "load with NULL path is rejected");
 
-  s = stegify_image_load("does_not_exist.unknownext", &img);
-  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT,
-    "load with an unknown extension is rejected");
+  s = stegify_image_load(NULL, 0, &img);
+  CHECK(s == STEGIFY_ERR_INVALID_INPUT, "load with a NULL buffer is rejected");
 
-  s = stegify_image_load("does_not_exist.jpg", &img);
+  s = stegify_image_load(junk, 0, &img);
+  CHECK(s == STEGIFY_ERR_INVALID_INPUT, "load with a zero length is rejected");
+
+  s = stegify_image_load(junk, sizeof(junk), &img);
   CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT,
-    "load of a .jpg is rejected (JPEG unsupported)");
+    "load of an unrecognised signature is rejected");
+
+  s = stegify_image_load(jpeg, sizeof(jpeg), &img);
+  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT,
+    "load of a JPEG signature is rejected (JPEG unsupported)");
 }
 
 static void
 test_load_errors(void)
 {
   stegify_image_t img;
-  stegify_status_t s;
-  FILE *f;
-  const char *bogus = "stegify_test_bogus.png";
+  uint8_t bogus_png[32];
 
   memset(&img, 0, sizeof(img));
 
-  /* A supported extension but no such file: cannot open -> FILE_IO. */
-  s = stegify_image_load("stegify_missing_file.png", &img);
-  CHECK(
-    s == STEGIFY_ERR_FILE_IO, "missing file with a valid extension is FILE_IO");
+  /* A valid PNG signature followed by a garbage body: recognised as PNG, then
+   * stb fails to decode it -> INVALID_IMAGE. */
+  memset(bogus_png, 0, sizeof(bogus_png));
+  bogus_png[0] = 0x89;
+  bogus_png[1] = 0x50;
+  bogus_png[2] = 0x4E;
+  bogus_png[3] = 0x47;
+  bogus_png[4] = 0x0D;
+  bogus_png[5] = 0x0A;
+  bogus_png[6] = 0x1A;
+  bogus_png[7] = 0x0A;
 
-  /* A readable file whose contents are not a valid image -> INVALID_IMAGE. */
-  f = fopen(bogus, "wb");
-  CHECK(f != NULL, "created a bogus image file");
-  if (f != NULL) {
-    fwrite("not a real image", 1, 16, f);
-    fclose(f);
-  }
-  s = stegify_image_load(bogus, &img);
-  CHECK(s == STEGIFY_ERR_INVALID_IMAGE, "readable non-image is INVALID_IMAGE");
-  remove(bogus);
+  CHECK(stegify_image_load(bogus_png, sizeof(bogus_png), &img) ==
+          STEGIFY_ERR_INVALID_IMAGE,
+    "a PNG signature with a garbage body is INVALID_IMAGE");
 }
 
 static void
@@ -254,15 +324,13 @@ run_file_roundtrip(
   snprintf(msg, sizeof(msg), "%s: embed returns OK", label);
   CHECK(s == STEGIFY_OK, msg);
 
-  s = stegify_image_save(path, &img);
   snprintf(msg, sizeof(msg), "%s: save returns OK", label);
-  CHECK(s == STEGIFY_OK, msg);
+  CHECK(save_image(path, &img), msg);
   free_image(&img);
 
   memset(&loaded, 0, sizeof(loaded));
-  s = stegify_image_load(path, &loaded);
   snprintf(msg, sizeof(msg), "%s: load returns OK", label);
-  CHECK(s == STEGIFY_OK, msg);
+  CHECK(load_image(path, &loaded), msg);
 
   outsize = sizeof(out);
   s = stegify_extract(&loaded, out, &outsize);
@@ -278,39 +346,39 @@ run_file_roundtrip(
 }
 
 static void
-test_encoder_from_output_path(void)
+test_export_format(void)
 {
   stegify_image_t img;
-  const char *bmp_path = "stegify_test_mixed.bmp";
+  const char *bmp_path = "stegify_test_export.bmp";
   FILE *f;
   unsigned char magic[2];
   stegify_status_t s;
 
-  /* image->format says PNG but the output path says BMP: the encoder must
-   * follow the output extension, so the saved file is a BMP. */
+  /* export encodes according to image->format, regardless of how the image was
+   * decoded: format BMP must yield a BMP file. */
   img = make_image(16, 16, 3);
-  img.format = STEGIFY_FORMAT_PNG;
-  s = stegify_image_save(bmp_path, &img);
-  CHECK(s == STEGIFY_OK, "save to .bmp with PNG load-format succeeds");
+  img.format = STEGIFY_FORMAT_BMP;
+  CHECK(save_image(bmp_path, &img), "export as BMP succeeds");
   free_image(&img);
 
   magic[0] = 0;
   magic[1] = 0;
   f = fopen(bmp_path, "rb");
-  CHECK(f != NULL, "saved file exists");
+  CHECK(f != NULL, "exported file exists");
   if (f != NULL) {
     fread(magic, 1, sizeof(magic), f);
     fclose(f);
   }
-  CHECK(
-    magic[0] == 'B' && magic[1] == 'M', "saved file carries a BMP signature");
+  CHECK(magic[0] == 'B' && magic[1] == 'M',
+    "exported file carries a BMP signature");
   remove(bmp_path);
 
-  /* an unsupported output extension is rejected before writing */
+  /* an unknown output format is rejected before any bytes are produced */
   img = make_image(16, 16, 3);
-  s = stegify_image_save("stegify_test_out.jpg", &img);
+  img.format = STEGIFY_FORMAT_UNKNOWN;
+  s = stegify_image_export(&img, file_sink, NULL);
   CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT,
-    "save to an unsupported extension is rejected");
+    "export with an unknown format is rejected");
   free_image(&img);
 }
 
@@ -342,8 +410,8 @@ static const struct test_case TESTS[] = { { "roundtrip_header",
   { "tiny_image_embed", test_tiny_image_embed },
   { "tiny_image_extract", test_tiny_image_extract },
   { "invalid_input", test_invalid_input }, { "load_errors", test_load_errors },
-  { "encoder_from_output_path", test_encoder_from_output_path },
-  { "png_file", test_png_file }, { "bmp_file", test_bmp_file } };
+  { "export_format", test_export_format }, { "png_file", test_png_file },
+  { "bmp_file", test_bmp_file } };
 
 int
 main(int argc, char **argv)

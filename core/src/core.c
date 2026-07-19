@@ -1,4 +1,4 @@
-#include <stdio.h>
+#include <limits.h>
 #include <string.h>
 
 #include "stegify/core.h"
@@ -27,56 +27,54 @@
 
 static const uint8_t STEGIFY_MAGIC[STEGIFY_MAGIC_LEN] = { 'S', 'T', 'G', 'F' };
 
-static stegify_image_format_t
-stegify_format_from_path(const char *filepath)
+stegify_image_format_t
+stegify_image_format(const uint8_t *buffer, size_t size)
 {
-  const char *ext;
+  static const uint8_t png_signature[8] = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A,
+    0x1A, 0x0A };
 
-  ext = strrchr(filepath, '.');
+  if (buffer == NULL)
+    return STEGIFY_FORMAT_UNKNOWN;
 
-  if (ext == NULL)
+  if (size >= sizeof(png_signature) &&
+      memcmp(buffer, png_signature, sizeof(png_signature)) == 0)
     return STEGIFY_FORMAT_PNG;
 
-  ext++;
-
-  if (strcmp(ext, "png") == 0 || strcmp(ext, "PNG") == 0)
-    return STEGIFY_FORMAT_PNG;
-
-  if (strcmp(ext, "bmp") == 0 || strcmp(ext, "BMP") == 0)
+  if (size >= 2 && buffer[0] == 'B' && buffer[1] == 'M')
     return STEGIFY_FORMAT_BMP;
 
   return STEGIFY_FORMAT_UNKNOWN;
 }
 
 stegify_status_t
-stegify_image_load(const char *filepath, stegify_image_t *image)
+stegify_image_load(const uint8_t *buffer, size_t size, stegify_image_t *image)
 {
   int width;
   int height;
   int channels;
   stbi_uc *pixels;
   stegify_image_format_t format;
-  FILE *probe;
 
-  if (filepath == NULL || image == NULL)
+  if (buffer == NULL || image == NULL)
     return STEGIFY_ERR_INVALID_INPUT;
 
-  format = stegify_format_from_path(filepath);
+  /* stbi_load_from_memory takes an int length, so reject anything that does not
+   * fit; an empty buffer holds no image either. */
+  if (size == 0 || size > INT_MAX)
+    return STEGIFY_ERR_INVALID_INPUT;
+
+  /* Gate on the signature before decoding, so an unsupported (but otherwise
+   * decodable) format is rejected here rather than silently accepted. */
+  format = stegify_image_format(buffer, size);
   if (format == STEGIFY_FORMAT_UNKNOWN)
     return STEGIFY_ERR_UNSUPPORTED_FORMAT;
-
-  /* stbi_load returns NULL for both a missing file and an unreadable image,
-   * so probe the file first to tell "cannot open" from "not a valid image". */
-  probe = fopen(filepath, "rb");
-  if (probe == NULL)
-    return STEGIFY_ERR_FILE_IO;
-  fclose(probe);
 
   width = 0;
   height = 0;
   channels = 0;
 
-  pixels = stbi_load(filepath, &width, &height, &channels, 0);
+  pixels =
+    stbi_load_from_memory(buffer, (int)size, &width, &height, &channels, 0);
   if (pixels == NULL)
     return STEGIFY_ERR_INVALID_IMAGE;
 
@@ -105,36 +103,36 @@ stegify_image_free(stegify_image_t *image)
 }
 
 stegify_status_t
-stegify_image_save(const char *filepath, const stegify_image_t *image)
+stegify_image_export(
+  const stegify_image_t *image, stegify_write_fn cb, void *ctx)
 {
   int written;
   int stride;
-  stegify_image_format_t out_format;
 
-  if (filepath == NULL || image == NULL || image->data == NULL ||
+  if (image == NULL || image->data == NULL || cb == NULL ||
       image->channels == 0)
     return STEGIFY_ERR_INVALID_INPUT;
 
-  /* The encoder is chosen from the output path, not from image->format (which
-   * only records how the image was decoded), so the output extension is
-   * honoured. */
-  out_format = stegify_format_from_path(filepath);
   stride = (int)(image->width * image->channels);
 
-  switch (out_format) {
+  switch (image->format) {
   case STEGIFY_FORMAT_PNG:
-    written = stbi_write_png(filepath, (int)image->width, (int)image->height,
-      (int)image->channels, image->data, stride);
+    written =
+      stbi_write_png_to_func((stbi_write_func *)cb, ctx, (int)image->width,
+        (int)image->height, (int)image->channels, image->data, stride);
     break;
   case STEGIFY_FORMAT_BMP:
-    written = stbi_write_bmp(filepath, (int)image->width, (int)image->height,
-      (int)image->channels, image->data);
+    written = stbi_write_bmp_to_func((stbi_write_func *)cb, ctx,
+      (int)image->width, (int)image->height, (int)image->channels, image->data);
     break;
   default:
     return STEGIFY_ERR_UNSUPPORTED_FORMAT;
   }
 
-  return written == 0 ? STEGIFY_ERR_FILE_IO : STEGIFY_OK;
+  /* stb ignores the sink's return value, so a nonzero result only means the
+   * encoder ran; a caller writing to a file checks its own sink for I/O errors.
+   * A zero result is an encoder failure, in practice an allocation failure. */
+  return written == 0 ? STEGIFY_ERR_MEMORY_ALLOC : STEGIFY_OK;
 }
 
 size_t
