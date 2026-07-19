@@ -41,7 +41,7 @@ CMake subdirectory with its own build file:
 
 - `core/` — the core library `stegify_core`:
   - `core/include/stegify/core.h` — public API: the LSB algorithm and image I/O.
-  - `core/include/stegify/app.h` — public API: UI-agnostic file workflows (embed,
+  - `core/include/stegify/ops.h` — public API: UI-agnostic file workflows (embed,
     extract, capacity, file read/write). Returns status codes and data; it never
     reads arguments, prints, or exits.
   - `core/src/` — implementation, including the `stb_image` translation unit.

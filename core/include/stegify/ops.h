@@ -1,5 +1,5 @@
-#ifndef STEGIFY_APP_H
-#define STEGIFY_APP_H
+#ifndef STEGIFY_OPS_H
+#define STEGIFY_OPS_H
 
 #include <stddef.h>
 #include <stdint.h>
@@ -7,7 +7,7 @@
 #include "stegify/core.h"
 
 /*
- * Application/operations layer: UI-agnostic building blocks shared by the CLI
+ * Operations layer: UI-agnostic building blocks shared by the CLI
  * and any other frontend (e.g. a GUI). These functions perform the full
  * file-level workflows on top of the stegify core and report their outcome
  * through stegify_status_t. They never read arguments, print, or exit; the
@@ -42,7 +42,7 @@ stegify_write_file(const char *path, const uint8_t *data, size_t size);
  * underlying load/embed/save.
  */
 stegify_status_t
-stegify_app_embed(const char *image_path,
+stegify_ops_embed(const char *image_path,
                   const uint8_t *payload,
                   size_t payload_size,
                   const char *output_path,
@@ -57,7 +57,7 @@ stegify_app_embed(const char *image_path,
  * STEGIFY_OK, CORRUPTED_DATA (no valid payload), or another core status.
  */
 stegify_status_t
-stegify_app_extract(const char *image_path,
+stegify_ops_extract(const char *image_path,
                     uint32_t explicit_size,
                     uint8_t **out_data,
                     uint32_t *out_size);
@@ -67,7 +67,7 @@ stegify_app_extract(const char *image_path,
  * output pointer may be NULL. Returns STEGIFY_OK or a load status.
  */
 stegify_status_t
-stegify_app_capacity(const char *image_path,
+stegify_ops_capacity(const char *image_path,
                      size_t *capacity_with_header,
                      size_t *capacity_no_header);
 

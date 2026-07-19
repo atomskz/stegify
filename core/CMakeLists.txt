@@ -20,7 +20,7 @@ if(STEGIFY_M_LIBRARY)
   target_link_libraries(stb_image PUBLIC ${STEGIFY_M_LIBRARY})
 endif()
 
-add_library(stegify_core STATIC src/core.c src/app.c)
+add_library(stegify_core STATIC src/core.c src/ops.c)
 target_include_directories(stegify_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(stegify_core PUBLIC stb_image)
 stegify_configure_target(stegify_core)
@@ -64,16 +64,16 @@ foreach(case
   add_test(NAME ${case} COMMAND test_roundtrip ${case})
 endforeach()
 
-add_executable(test_app tests/test_app.c)
-target_link_libraries(test_app PRIVATE stegify_core)
-stegify_configure_target(test_app)
+add_executable(test_ops tests/test_ops.c)
+target_link_libraries(test_ops PRIVATE stegify_core)
+stegify_configure_target(test_ops)
 foreach(case
     file_io
-    app_roundtrip
-    app_roundtrip_no_header
-    app_capacity
-    app_no_payload)
-  add_test(NAME ${case} COMMAND test_app ${case})
+    ops_roundtrip
+    ops_roundtrip_no_header
+    ops_capacity
+    ops_no_payload)
+  add_test(NAME ${case} COMMAND test_ops ${case})
 endforeach()
 
 # Confirm the public header is usable from C++ (extern "C" linkage).

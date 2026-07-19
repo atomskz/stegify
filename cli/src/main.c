@@ -6,7 +6,7 @@
 #include <string.h>
 
 #include "stegify/core.h"
-#include "stegify/app.h"
+#include "stegify/ops.h"
 
 #define STEGIFY_VERSION "0.1.0"
 
@@ -256,7 +256,7 @@ handle_embed(const char *image_path, const cli_options_t *options)
     payload = file_payload;
   }
 
-  status = stegify_app_embed(image_path, payload, payload_size,
+  status = stegify_ops_embed(image_path, payload, payload_size,
     options->output_file_path, options->no_size_header ? 0 : 1, &capacity_remaining);
   if (status != STEGIFY_OK) {
     fprintf(stderr, "Failed to embed data: %s\n", stegify_error_string(status));
@@ -290,7 +290,7 @@ handle_extract(const char *image_path, const cli_options_t *options)
   data_size = 0;
   explicit_size = options->has_extract_size ? options->extract_size : 0;
 
-  status = stegify_app_extract(image_path, explicit_size, &buffer, &data_size);
+  status = stegify_ops_extract(image_path, explicit_size, &buffer, &data_size);
   if (status != STEGIFY_OK) {
     if (status == STEGIFY_ERR_CORRUPTED_DATA)
       fprintf(stderr,
@@ -338,7 +338,7 @@ handle_size(const char *image_path)
   cap_header = 0;
   cap_raw = 0;
 
-  status = stegify_app_capacity(image_path, &cap_header, &cap_raw);
+  status = stegify_ops_capacity(image_path, &cap_header, &cap_raw);
   if (status != STEGIFY_OK) {
     fprintf(stderr, "Failed to load image: %s\n", stegify_error_string(status));
     return 1;
