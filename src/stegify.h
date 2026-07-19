@@ -18,8 +18,7 @@ typedef enum {
 typedef enum {
     STEGIFY_FORMAT_UNKNOWN = -1,
     STEGIFY_FORMAT_PNG = 0,
-    STEGIFY_FORMAT_BMP,
-    STEGIFY_FORMAT_JPEG
+    STEGIFY_FORMAT_BMP
 } stegify_image_format_t;
 
 typedef enum {

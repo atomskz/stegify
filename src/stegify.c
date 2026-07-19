@@ -30,10 +30,6 @@ stegify_format_from_path(const char *filepath)
   if (strcmp(ext, "bmp") == 0 || strcmp(ext, "BMP") == 0)
     return STEGIFY_FORMAT_BMP;
 
-  if (strcmp(ext, "jpg") == 0 || strcmp(ext, "jpeg") == 0 ||
-      strcmp(ext, "JPG") == 0 || strcmp(ext, "JPEG") == 0)
-    return STEGIFY_FORMAT_JPEG;
-
   return STEGIFY_FORMAT_UNKNOWN;
 }
 
@@ -105,10 +101,6 @@ stegify_image_save(
     case STEGIFY_FORMAT_BMP:
       written = stbi_write_bmp(filepath, (int)image->width,
         (int)image->height, (int)image->channels, image->data);
-      break;
-    case STEGIFY_FORMAT_JPEG:
-      written = stbi_write_jpg(filepath, (int)image->width,
-        (int)image->height, (int)image->channels, image->data, 100);
       break;
     default:
       return STEGIFY_ERR_UNSUPPORTED_FORMAT;

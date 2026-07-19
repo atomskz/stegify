@@ -169,6 +169,9 @@ test_invalid_input(void)
 
   s = stegify_image_load("does_not_exist.unknownext", &img);
   CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT, "load with an unknown extension is rejected");
+
+  s = stegify_image_load("does_not_exist.jpg", &img);
+  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT, "load of a .jpg is rejected (JPEG unsupported)");
 }
 
 static void
