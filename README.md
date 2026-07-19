@@ -1,302 +1,144 @@
 # stegify
 
-`stegify` is a command-line tool and C library for hiding and recovering data in
-images using the LSB (Least Significant Bit) method.
+Hide and recover data in images — from the command line or from C.
 
-The project consists of:
-- the core library (`core/`) with an API for loading/saving images and performing
-  the steganography operations;
-- a CLI frontend (`cli/`) for everyday use, built on the core;
-- the `stb_image`/`stb_image_write` translation unit (`core/src/stbi_impl.c`) for
-  reading and writing PNG and BMP.
+`stegify` is a small CLI tool and C library that hides a payload inside a PNG or
+BMP using **LSB (least-significant-bit) steganography**: each payload byte is
+spread across eight image bytes, one bit in each byte's lowest bit, so the
+picture looks unchanged. A fixed header (magic `STGF` + a version byte + a
+`uint32` length) precedes the payload, so an image that carries nothing is
+reported as empty instead of returning garbage. Version 0.1.0.
 
-## How it works
+> **`stegify` hides data; it does not protect it.** The payload is stored in
+> plaintext and is trivially recoverable — see
+> [Security & limitations](#security--limitations).
 
-The core idea is to store the bits of the payload in the least significant bit of
-each byte of the pixel data.
-
-- One payload byte needs eight container bytes (one bit per container byte).
-- The library writes a small fixed header before the payload: a `STGF` magic
-  marker, a one-byte format version, and the payload length as a `uint32_t`. On
-  extraction the magic is validated first, so an image that carries no payload is
-  reported as such instead of returning random bytes.
-
-## Features
-
-- Embed a string into an image.
-- Embed the contents of a file into an image.
-- Extract data from an image:
-  - to a file;
-  - to the console as a hex+ASCII table (with `-p`).
-- Query the maximum payload capacity of an image (`size`).
-
-## Project layout
-
-The code is split into components so that alternative frontends (such as a GUI)
-can reuse the application logic without touching the terminal code. Each is a
-CMake subdirectory with its own build file:
-
-- `core/` — the core library `stegify_core`:
-  - `core/include/stegify/core.h` — public API: the LSB algorithm and image I/O.
-  - `core/include/stegify/ops.h` — public API: UI-agnostic file workflows (embed,
-    extract, capacity, file read/write). Returns status codes and data; it never
-    reads arguments, prints, or exits.
-  - `core/src/` — implementation, including the `stb_image` translation unit.
-  - `core/tests/`, `core/examples/`.
-- `cli/` — the CLI frontend `stegify_cli` (binary: `stegify`), built on the core.
-  - `cli/src/main.c` — argument parsing and formatting.
-  - `cli/tests/` — the CLI round-trip test and its fixture.
-- `cmake/` — shared build settings.
-
-A future `gui/` frontend links `stegify_core` the same way `cli/` does.
-
-## Requirements
-
-- CMake >= 3.14
-- A C99 compiler
-- Network access on the first CMake configure (to fetch `stb` via `FetchContent`)
-
-## Building
-
-### Linux / macOS
+## In two commands
 
 ```bash
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
+stegify embed cover.png -m "Hello, stegify!" -o stego.png   # hide it
+stegify extract stego.png -p                                # read it back
 ```
 
-The binary is then at `./build/stegify`.
-
-### Windows (MSVC)
-
-```bat
-cmake -S . -B build
-cmake --build build --config Release
-```
-
-With the multi-config Visual Studio generator the binary is at
-`build\Release\stegify.exe`.
-
-### Running the tests
-
-```bash
-ctest --test-dir build --output-on-failure
-```
-
-## CLI usage
-
-```text
-stegify embed <image_path> (-m <data_as_string> | -f <data_file_path>) -o <output_image_path> [-p]
-stegify extract <image_path> [-o <output_file_path>] [-p]
-stegify size <image_path>
-stegify --help | --version
-```
-
-The image path is positional and must come first, before any options.
-
-### 1) Embed a string
-
-```bash
-./build/stegify embed input.png -m "secret message" -o output.png
-```
-
-The command loads `input.png`, embeds the string, writes the result to
-`output.png`, and prints a status line.
-
-### 2) Embed a file
-
-```bash
-./build/stegify embed input.png -f /path/to/data.bin -o output.png
-```
-
-Notes:
-- `-m` and `-f` are mutually exclusive;
-- `-o` is required for `embed`;
-- `-p` prints the embedded payload as a hex+ASCII table.
-
-### 3) Extract to a file
-
-```bash
-./build/stegify extract output.png -o extracted.bin
-```
-
-### 4) Extract to the console (hex+ASCII)
-
-```bash
-./build/stegify extract output.png -p
-```
-
-Without `-p`, `extract` prints only a status line. With `-p` the payload is
-printed as a hex table with a parallel ASCII column, for example:
+`-p` prints the recovered payload as a hex+ASCII table:
 
 ```text
 00000000  48 65 6c 6c 6f 2c 20 73  74 65 67 69 66 79 21     |Hello, stegify!|
 ```
 
-### 5) Query capacity
+## Build
+
+Requires **CMake ≥ 3.14**, a **C99 compiler**, and network access on the *first*
+configure (stb is fetched via CMake `FetchContent`).
 
 ```bash
-./build/stegify size input.png
+# Linux / macOS
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+cmake --build build           # binary: ./build/stegify
 ```
 
-Example output:
+```bat
+:: Windows (MSVC, multi-config)
+cmake -S . -B build
+cmake --build build --config Release   :: binary: build\Release\stegify.exe
+```
 
-```text
-capacity: 2039 bytes (0.002 MiB)
+Run the tests with `ctest --test-dir build`. The examples below call `stegify`;
+use the path above, or add the binary to your `PATH`.
+
+## Commands
+
+The image path is positional and must come **first**, before any options.
+
+| Command | What it does | Example |
+| --- | --- | --- |
+| `embed` | Hide a string (`-m`) or file (`-f`) in an image, saved to `-o` | `stegify embed in.png -m "hi" -o out.png` |
+| `extract` | Recover the payload to `-o` and/or print it with `-p` | `stegify extract out.png -o data.bin` |
+| `size` | Print an image's maximum payload capacity | `stegify size in.png` |
+| `--help` / `--version` | Show usage or the version and exit | `stegify --help` |
+
+| Option | Meaning |
+| --- | --- |
+| `-m <string>` | Embed the given string (`embed` only; exclusive with `-f`). |
+| `-f <file>` | Embed a file's contents (`embed` only; exclusive with `-m`). |
+| `-o <path>` | Output path — the image for `embed` (required), the data file for `extract` (optional). |
+| `-p` | Print the payload as a hex+ASCII table. Works on `extract` and on `embed -m` (not `-f`). |
+
+### Round-trip a file
+
+```bash
+stegify size cover.png                              # capacity: 2039 bytes (0.002 MiB)
+stegify embed cover.png -f secret.bin -o stego.png
+stegify extract stego.png -o restored.bin
+cmp -s secret.bin restored.bin && echo OK
 ```
 
 ## Image formats
 
-Supported:
-- PNG
-- BMP
+Only **PNG** and **BMP** are supported.
 
-The format is determined by the file extension. The output format is chosen from
-the **output** path, so `-o out.bmp` writes a BMP regardless of the input format.
+- **Input** is detected from the file's *signature* (magic bytes), not its name
+  — a JPEG renamed to `.png` is rejected.
+- **Output** is chosen from the output path's *extension* — `-o out.bmp` writes a
+  BMP whatever the input was.
 
-JPEG is intentionally not supported: it is a lossy format, so re-encoding would
-destroy the LSB payload.
+JPEG is intentionally unsupported: it is lossy, so re-encoding would destroy the
+LSB payload.
 
-## Container capacity
-
-Each payload byte occupies eight container bytes, and a small fixed header is
-also stored, so the usable capacity is:
+## Capacity
 
 ```text
-floor(width * height * channels / 8) - <header size>
+floor(width * height * channels / 8) - header_size
 ```
 
-Run `stegify size <image>` to see the exact capacity.
+Run `stegify size <image>` for the exact value.
 
-## Public library API
+## Library API
 
-The operations layer in `core/include/stegify/ops.h` (included as
-`<stegify/ops.h>`) is the path-based entry point and owns all file access. The
-in-memory codec in `core/include/stegify/core.h` sits underneath it and does no
-file I/O.
+Two layers, both under `<stegify/…>`; a compilable example lives in
+[`core/examples/usage.c`](core/examples/usage.c).
 
-Operations layer (`<stegify/ops.h>`):
-- `stegify_ops_embed(...)` — embed an in-memory payload into an image and save it.
-- `stegify_ops_embed_file(...)` — embed the contents of a file into an image.
-- `stegify_ops_extract(...)` — extract a payload to a file and/or a buffer.
-- `stegify_ops_capacity(...)` — maximum payload capacity of an image.
+**Path-based facade — `<stegify/ops.h>`** (owns all file I/O; start here):
 
-Core codec (`<stegify/core.h>`), for callers that manage their own bytes:
-- `stegify_image_load(...)` — decode an image from an in-memory buffer.
-- `stegify_image_export(...)` — encode an image, delivering the bytes to a callback.
-- `stegify_image_free(...)` — free the decoded pixel buffer.
-- `stegify_get_max_capacity(image)` — maximum payload capacity of the image.
-- `stegify_embed(...)` — embed data.
-- `stegify_extract(...)` — extract data. `*data_size` is in/out: the caller sets it
-  to the output buffer capacity and the function overwrites it with the number of
-  bytes actually extracted.
-- `stegify_error_string(...)` — human-readable status text.
+| Function | Purpose |
+| --- | --- |
+| `stegify_ops_embed` | Embed an in-memory payload into an image and save it. |
+| `stegify_ops_embed_file` | Embed a payload file into an image and save it. |
+| `stegify_ops_extract` | Extract a payload to a file and/or a caller buffer. |
+| `stegify_ops_capacity` | Report an image's maximum payload capacity. |
 
-### Example
+**In-memory codec — `<stegify/core.h>`** (no file I/O):
 
-A compilable version of this example lives in `core/examples/usage.c`.
+| Function | Purpose |
+| --- | --- |
+| `stegify_image_load` | Decode an image from a buffer. |
+| `stegify_image_export` | Encode an image to a write callback. |
+| `stegify_image_free` | Free the decoded pixel buffer. |
+| `stegify_get_max_capacity` | Maximum payload capacity of a loaded image. |
+| `stegify_embed` / `stegify_extract` | Embed / extract data in the pixel LSBs. |
+| `stegify_error_string` | Human-readable text for a status code. |
 
-```c
-#include <stdint.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
+Every function returns a `stegify_status_t`: `STEGIFY_OK`,
+`STEGIFY_ERR_INVALID_INPUT`, `STEGIFY_ERR_INVALID_IMAGE`,
+`STEGIFY_ERR_UNSUPPORTED_FORMAT`, `STEGIFY_ERR_INSUFFICIENT_CAPACITY`,
+`STEGIFY_ERR_MEMORY_ALLOC`, `STEGIFY_ERR_FILE_IO`, `STEGIFY_ERR_CORRUPTED_DATA`.
 
-#include "stegify/ops.h"
+## Security & limitations
 
-int embed_example(void)
-{
-  const char *payload = "hidden message";
-  stegify_status_t status;
-
-  status = stegify_ops_embed("cover.png", (const uint8_t *)payload,
-    strlen(payload), "stego.png", NULL);
-  return status == STEGIFY_OK ? 0 : 1;
-}
-
-int extract_example(void)
-{
-  uint8_t *payload;
-  uint32_t size;
-  stegify_status_t status;
-
-  /* out_data is owned by the caller; pass a path instead to write it directly */
-  status = stegify_ops_extract("stego.png", NULL, &payload, &size);
-  if (status != STEGIFY_OK)
-    return 1;
-
-  fwrite(payload, 1, size, stdout);
-  free(payload);
-  return 0;
-}
-```
-
-Status codes in `stegify_status_t`:
-- `STEGIFY_OK`
-- `STEGIFY_ERR_INVALID_INPUT`
-- `STEGIFY_ERR_INVALID_IMAGE`
-- `STEGIFY_ERR_UNSUPPORTED_FORMAT`
-- `STEGIFY_ERR_INSUFFICIENT_CAPACITY`
-- `STEGIFY_ERR_MEMORY_ALLOC`
-- `STEGIFY_ERR_FILE_IO`
-- `STEGIFY_ERR_CORRUPTED_DATA`
-
-## Limitations and notes
-
-- The LSB method is sensitive to image transformations.
-- Any lossy re-encoding, resize, or format conversion destroys the hidden data;
-  use PNG or BMP and do not modify the container.
-- The library provides no encryption or authentication — it only hides data.
-- Extraction works only if the container has not been modified after embedding.
-- The output path is trusted and overwritten without confirmation; make sure it
-  does not point to a file you want to keep.
-
-## Security / threat model
-
-stegify hides data; it does not protect it. LSB steganography:
-
-- provides **no confidentiality** — the payload is stored in plaintext and is
-  trivially recoverable by anyone who looks;
-- provides **no integrity or authentication** — beyond the header's magic check, a
-  modified container is not detected;
-- is **easily detected** by standard steganalysis;
-- **survives only lossless, unmodified** PNG/BMP containers.
+- **No confidentiality** — the payload is stored in plaintext and is trivially
+  recoverable by anyone who looks.
+- **No integrity or authentication** beyond the header's magic check; a modified
+  container is not detected.
+- **Easily detected** by standard steganalysis.
+- **Fragile** — any lossy re-encode, resize, or format conversion destroys the
+  payload; it survives only lossless, unmodified PNG/BMP.
+- The output path is **overwritten without confirmation**.
 
 If you need secrecy or tamper-resistance, encrypt and authenticate the payload
-before embedding it.
-
-## End-to-end example
-
-```bash
-# 1) Check the capacity
-./build/stegify size cover.png
-
-# 2) Embed a file
-./build/stegify embed cover.png -f secret.bin -o stego.png
-
-# 3) Extract it back
-./build/stegify extract stego.png -o restored.bin
-
-# 4) Compare
-cmp -s secret.bin restored.bin && echo "OK"
-```
-
-## Troubleshooting
-
-If a command fails:
-- check the input path;
-- check the extension (`png`, `bmp`);
-- check that the payload fits in the container (`size`);
-- check write permissions for the output path;
-- if `extract` reports "No stegify payload detected", the image carries no stegify
-  payload (or was modified after embedding).
+**before** embedding it.
 
 ## License
 
-This project is distributed under the MIT License. See the `LICENSE` file for the
-full text.
-
-## Third-party licenses
-
-The project uses `stb` (`stb_image`, `stb_image_write`), fetched at build time via
-CMake `FetchContent` from the official `nothings/stb` repository.
+MIT — see the [`LICENSE`](LICENSE) file. Uses
+[`stb`](https://github.com/nothings/stb) (`stb_image`, `stb_image_write`),
+fetched at build time via CMake `FetchContent`.
