@@ -4,6 +4,10 @@
 #include <stddef.h>
 #include <stdint.h>
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 typedef enum {
     STEGIFY_OK = 0,
     STEGIFY_ERR_INVALID_INPUT,
@@ -20,6 +24,11 @@ typedef enum {
     STEGIFY_FORMAT_BMP
 } stegify_image_format_t;
 
+/*
+ * Flags for the `attributes` bitmask taken by stegify_embed and
+ * stegify_extract (passed as an int). STEGIFY_ATTR_WITH_SIZE writes/reads the
+ * payload header; pass 0 for a raw payload with no header.
+ */
 typedef enum {
     STEGIFY_ATTR_WITH_SIZE = 1
 } stegify_attribute_t;
@@ -64,5 +73,9 @@ stegify_extract(
 
 const char *
 stegify_error_string(stegify_status_t status);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif

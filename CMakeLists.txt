@@ -85,3 +85,9 @@ add_test(
 
 add_test(NAME cli_help COMMAND stegify --help)
 add_test(NAME cli_version COMMAND stegify --version)
+
+# Confirm the public header is usable from C++ (extern "C" linkage).
+enable_language(CXX)
+add_executable(test_cpp_link tests/test_cpp_link.cpp)
+target_link_libraries(test_cpp_link PRIVATE stegify_core)
+add_test(NAME cpp_link COMMAND test_cpp_link)
