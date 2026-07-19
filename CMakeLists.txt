@@ -67,6 +67,7 @@ foreach(case
     tiny_image_embed
     tiny_image_extract
     invalid_input
+    encoder_from_output_path
     png_file
     bmp_file)
   add_test(NAME ${case} COMMAND test_roundtrip ${case})

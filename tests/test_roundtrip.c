@@ -252,6 +252,41 @@ run_file_roundtrip(const char *path, stegify_image_format_t fmt, const char *lab
 }
 
 static void
+test_encoder_from_output_path(void)
+{
+  stegify_image_t img;
+  const char *bmp_path = "stegify_test_mixed.bmp";
+  FILE *f;
+  unsigned char magic[2];
+  stegify_status_t s;
+
+  /* image->format says PNG but the output path says BMP: the encoder must
+   * follow the output extension, so the saved file is a BMP. */
+  img = make_image(16, 16, 3);
+  img.format = STEGIFY_FORMAT_PNG;
+  s = stegify_image_save(bmp_path, &img);
+  CHECK(s == STEGIFY_OK, "save to .bmp with PNG load-format succeeds");
+  free_image(&img);
+
+  magic[0] = 0;
+  magic[1] = 0;
+  f = fopen(bmp_path, "rb");
+  CHECK(f != NULL, "saved file exists");
+  if (f != NULL) {
+    fread(magic, 1, sizeof(magic), f);
+    fclose(f);
+  }
+  CHECK(magic[0] == 'B' && magic[1] == 'M', "saved file carries a BMP signature");
+  remove(bmp_path);
+
+  /* an unsupported output extension is rejected before writing */
+  img = make_image(16, 16, 3);
+  s = stegify_image_save("stegify_test_out.jpg", &img);
+  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT, "save to an unsupported extension is rejected");
+  free_image(&img);
+}
+
+static void
 test_png_file(void)
 {
   run_file_roundtrip("stegify_test_tmp.png", STEGIFY_FORMAT_PNG, "png");
@@ -279,6 +314,7 @@ static const struct test_case TESTS[] = {
   { "tiny_image_embed", test_tiny_image_embed },
   { "tiny_image_extract", test_tiny_image_extract },
   { "invalid_input", test_invalid_input },
+  { "encoder_from_output_path", test_encoder_from_output_path },
   { "png_file", test_png_file },
   { "bmp_file", test_bmp_file }
 };

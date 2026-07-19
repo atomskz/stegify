@@ -85,14 +85,19 @@ stegify_image_save(
 {
   int written;
   int stride;
+  stegify_image_format_t out_format;
 
   if (filepath == NULL || image == NULL ||
       image->data == NULL || image->channels == 0)
     return STEGIFY_ERR_INVALID_INPUT;
 
+  /* The encoder is chosen from the output path, not from image->format (which
+   * only records how the image was decoded), so the output extension is
+   * honoured. */
+  out_format = stegify_format_from_path(filepath);
   stride = (int)(image->width * image->channels);
 
-  switch (image->format)
+  switch (out_format)
   {
     case STEGIFY_FORMAT_PNG:
       written = stbi_write_png(filepath, (int)image->width,
