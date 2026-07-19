@@ -13,12 +13,8 @@ FetchContent_MakeAvailable(stb)
 
 add_library(stb_image STATIC src/stbi_impl.c)
 target_include_directories(stb_image SYSTEM PUBLIC ${stb_SOURCE_DIR})
-# stb's image code calls pow(), a separate math library on some platforms
-# (Linux/glibc). Link it where it exists; MSVC/macOS provide it otherwise.
-find_library(STEGIFY_M_LIBRARY m)
-if(STEGIFY_M_LIBRARY)
-  target_link_libraries(stb_image PUBLIC ${STEGIFY_M_LIBRARY})
-endif()
+# No libm needed: stbi_impl.c disables stb's HDR/float loaders, the only stb
+# code that calls pow().
 
 add_library(stegify_core STATIC src/core.c src/ops.c)
 target_include_directories(stegify_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
