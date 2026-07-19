@@ -25,12 +25,6 @@
 
 static const uint8_t STEGIFY_MAGIC[STEGIFY_MAGIC_LEN] = { 'S', 'T', 'G', 'F' };
 
-typedef struct {
-  size_t total_bytes;
-  size_t step;
-  size_t current_pos;
-} stegify_position_iter_t;
-
 static stegify_image_format_t
 stegify_format_from_path(const char *filepath)
 {
@@ -179,38 +173,26 @@ extract_bit(uint8_t source)
   return source & 0x01;
 }
 
-static void
-stegify_iter_init(stegify_position_iter_t *iter)
-{
-  /* Starts one before position 0; the first stegify_iter_next() wraps to 0. */
-  iter->current_pos = (size_t)-1;
-  iter->step = 1;
-}
-
-static size_t
-stegify_iter_next(stegify_position_iter_t *iter)
-{
-    iter->current_pos += iter->step;
-    return iter->current_pos;
-}
-
+/*
+ * The payload is laid out one bit per image byte, starting at *pos and
+ * advancing sequentially; each helper resumes from where the previous left
+ * off. Callers guarantee (via the capacity checks) that *pos stays in bounds.
+ */
 static void
 stegify_write_buffer_to_image_lsb(
   const uint8_t *buffer,
   size_t buffer_size,
   uint8_t *image_data,
-  stegify_position_iter_t *iter)
+  size_t *pos)
 {
   size_t byte_idx;
   uint8_t bit;
   int bit_idx;
-  size_t pos;
 
   for (byte_idx = 0; byte_idx < buffer_size; byte_idx++) {
     for (bit_idx = 0; bit_idx < BITS_IN_BYTE; bit_idx++) {
       bit = (buffer[byte_idx] >> bit_idx) & 0x01;
-      pos = stegify_iter_next(iter);
-      embed_bit(&image_data[pos], bit);
+      embed_bit(&image_data[(*pos)++], bit);
     }
   }
 }
@@ -223,8 +205,8 @@ stegify_embed(
     int attributes)
 {
   size_t max_capacity;
+  size_t pos;
   uint8_t version;
-  stegify_position_iter_t iter;
 
   if (image == NULL || image->data == NULL || data == NULL)
     return STEGIFY_ERR_INVALID_INPUT;
@@ -237,16 +219,16 @@ stegify_embed(
   if (data_size > max_capacity)
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
 
-  stegify_iter_init(&iter);
+  pos = 0;
 
   if (attributes & STEGIFY_ATTR_WITH_SIZE) {
     version = STEGIFY_FORMAT_VERSION;
-    stegify_write_buffer_to_image_lsb(STEGIFY_MAGIC, STEGIFY_MAGIC_LEN, image->data, &iter);
-    stegify_write_buffer_to_image_lsb(&version, 1, image->data, &iter);
-    stegify_write_buffer_to_image_lsb((uint8_t *)&data_size, sizeof(data_size), image->data, &iter);
+    stegify_write_buffer_to_image_lsb(STEGIFY_MAGIC, STEGIFY_MAGIC_LEN, image->data, &pos);
+    stegify_write_buffer_to_image_lsb(&version, 1, image->data, &pos);
+    stegify_write_buffer_to_image_lsb((uint8_t *)&data_size, sizeof(data_size), image->data, &pos);
   }
 
-  stegify_write_buffer_to_image_lsb(data, data_size, image->data, &iter);
+  stegify_write_buffer_to_image_lsb(data, data_size, image->data, &pos);
 
   return STEGIFY_OK;
 }
@@ -256,12 +238,11 @@ stegify_read_buffer_from_image_lsb(
   uint8_t *buffer,
   size_t buffer_size,
   uint8_t *image_data,
-  stegify_position_iter_t *iter)
+  size_t *pos)
 {
   size_t byte_idx;
   uint8_t bit;
   int bit_idx;
-  size_t pos;
   uint8_t byte;
 
   for (byte_idx = 0; byte_idx < buffer_size; byte_idx++) {
@@ -269,8 +250,7 @@ stegify_read_buffer_from_image_lsb(
     byte = 0;
 
     for (bit_idx = 0; bit_idx < BITS_IN_BYTE; bit_idx++) {
-      pos = stegify_iter_next(iter);
-      bit = extract_bit(image_data[pos]);
+      bit = extract_bit(image_data[(*pos)++]);
       byte |= (bit << bit_idx);
     }
 
@@ -290,7 +270,7 @@ stegify_extract(
   size_t out_buffer_size;
   uint8_t magic[STEGIFY_MAGIC_LEN];
   uint8_t version;
-  stegify_position_iter_t iter;
+  size_t pos;
 
   if (image == NULL || image->data == NULL || data == NULL)
     return STEGIFY_ERR_INVALID_INPUT;
@@ -298,8 +278,8 @@ stegify_extract(
   if (data_size == NULL || *data_size == 0)
     return STEGIFY_ERR_INVALID_INPUT;
 
-  stegify_iter_init(&iter);
-    
+  pos = 0;
+
   out_buffer_size = *data_size;
   total_bytes = (size_t)image->width * image->height * image->channels;
 
@@ -310,15 +290,15 @@ stegify_extract(
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
 
   if (attributes & STEGIFY_ATTR_WITH_SIZE) {
-    stegify_read_buffer_from_image_lsb(magic, STEGIFY_MAGIC_LEN, image->data, &iter);
+    stegify_read_buffer_from_image_lsb(magic, STEGIFY_MAGIC_LEN, image->data, &pos);
     if (memcmp(magic, STEGIFY_MAGIC, STEGIFY_MAGIC_LEN) != 0)
       return STEGIFY_ERR_CORRUPTED_DATA;
 
-    stegify_read_buffer_from_image_lsb(&version, 1, image->data, &iter);
+    stegify_read_buffer_from_image_lsb(&version, 1, image->data, &pos);
     if (version != STEGIFY_FORMAT_VERSION)
       return STEGIFY_ERR_CORRUPTED_DATA;
 
-    stegify_read_buffer_from_image_lsb((uint8_t *)data_size, sizeof(*data_size), image->data, &iter);
+    stegify_read_buffer_from_image_lsb((uint8_t *)data_size, sizeof(*data_size), image->data, &pos);
   }
 
   if (*data_size > out_buffer_size)
@@ -331,7 +311,7 @@ stegify_extract(
   if (required_bits > total_bytes)
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
 
-  stegify_read_buffer_from_image_lsb(data, *data_size, image->data, &iter);
+  stegify_read_buffer_from_image_lsb(data, *data_size, image->data, &pos);
 
   return STEGIFY_OK;
 }
