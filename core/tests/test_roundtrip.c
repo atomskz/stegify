@@ -16,12 +16,12 @@
 
 static int g_failures;
 
-#define CHECK(cond, msg) \
-  do { \
-    if (!(cond)) { \
+#define CHECK(cond, msg)                      \
+  do {                                        \
+    if (!(cond)) {                            \
       fprintf(stderr, "  FAIL: %s\n", (msg)); \
-      g_failures++; \
-    } \
+      g_failures++;                           \
+    }                                         \
   } while (0)
 
 static stegify_image_t
@@ -56,7 +56,8 @@ static void
 test_roundtrip_header(void)
 {
   stegify_image_t img;
-  const char *payload = "Hello, stegify! The quick brown fox jumps over the lazy dog.";
+  const char *payload =
+    "Hello, stegify! The quick brown fox jumps over the lazy dog.";
   uint32_t plen;
   uint8_t out[128];
   uint32_t outsize;
@@ -66,13 +67,15 @@ test_roundtrip_header(void)
   plen = (uint32_t)strlen(payload);
   outsize = sizeof(out);
 
-  s = stegify_embed(&img, (const uint8_t *)payload, plen, STEGIFY_ATTR_WITH_SIZE);
+  s =
+    stegify_embed(&img, (const uint8_t *)payload, plen, STEGIFY_ATTR_WITH_SIZE);
   CHECK(s == STEGIFY_OK, "header embed returns OK");
 
   s = stegify_extract(&img, out, &outsize, STEGIFY_ATTR_WITH_SIZE);
   CHECK(s == STEGIFY_OK, "header extract returns OK");
   CHECK(outsize == plen, "header extract reports the embedded size");
-  CHECK(memcmp(out, payload, plen) == 0, "header payload round-trips byte-exact");
+  CHECK(
+    memcmp(out, payload, plen) == 0, "header payload round-trips byte-exact");
 
   free_image(&img);
 }
@@ -97,7 +100,8 @@ test_roundtrip_noheader(void)
   s = stegify_extract(&img, out, &outsize, 0);
   CHECK(s == STEGIFY_OK, "no-header extract returns OK");
   CHECK(outsize == plen, "no-header extract preserves the requested size");
-  CHECK(memcmp(out, payload, plen) == 0, "no-header payload round-trips byte-exact");
+  CHECK(memcmp(out, payload, plen) == 0,
+    "no-header payload round-trips byte-exact");
 
   free_image(&img);
 }
@@ -121,7 +125,8 @@ test_capacity_boundary(void)
   CHECK(s == STEGIFY_OK, "embed at exact capacity succeeds");
 
   s = stegify_embed(&img, payload, (uint32_t)(cap + 1), STEGIFY_ATTR_WITH_SIZE);
-  CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY, "embed one byte over capacity is rejected");
+  CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY,
+    "embed one byte over capacity is rejected");
 
   free(payload);
   free_image(&img);
@@ -140,7 +145,8 @@ test_no_payload_detected(void)
   img = make_image(64, 64, 3);
   outsize = sizeof(out);
   s = stegify_extract(&img, out, &outsize, STEGIFY_ATTR_WITH_SIZE);
-  CHECK(s == STEGIFY_ERR_CORRUPTED_DATA, "extract without a payload is detected");
+  CHECK(
+    s == STEGIFY_ERR_CORRUPTED_DATA, "extract without a payload is detected");
   free_image(&img);
 }
 
@@ -184,7 +190,8 @@ test_tiny_image_embed(void)
   /* 2x2x1 = 4 bytes -> total/8 = 0, cannot even fit the 4-byte size header. */
   img = make_image(2, 2, 1);
   s = stegify_embed(&img, (const uint8_t *)payload, 1, STEGIFY_ATTR_WITH_SIZE);
-  CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY, "tiny image header-mode embed is rejected");
+  CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY,
+    "tiny image header-mode embed is rejected");
 
   free_image(&img);
 }
@@ -203,7 +210,8 @@ test_tiny_image_extract(void)
   img = make_image(2, 2, 1);
   outsize = sizeof(out);
   s = stegify_extract(&img, out, &outsize, STEGIFY_ATTR_WITH_SIZE);
-  CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY, "tiny image header-mode extract is rejected");
+  CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY,
+    "tiny image header-mode extract is rejected");
 
   free_image(&img);
 }
@@ -219,10 +227,12 @@ test_invalid_input(void)
   CHECK(s == STEGIFY_ERR_INVALID_INPUT, "load with NULL path is rejected");
 
   s = stegify_image_load("does_not_exist.unknownext", &img);
-  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT, "load with an unknown extension is rejected");
+  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT,
+    "load with an unknown extension is rejected");
 
   s = stegify_image_load("does_not_exist.jpg", &img);
-  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT, "load of a .jpg is rejected (JPEG unsupported)");
+  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT,
+    "load of a .jpg is rejected (JPEG unsupported)");
 }
 
 static void
@@ -237,7 +247,8 @@ test_load_errors(void)
 
   /* A supported extension but no such file: cannot open -> FILE_IO. */
   s = stegify_image_load("stegify_missing_file.png", &img);
-  CHECK(s == STEGIFY_ERR_FILE_IO, "missing file with a valid extension is FILE_IO");
+  CHECK(
+    s == STEGIFY_ERR_FILE_IO, "missing file with a valid extension is FILE_IO");
 
   /* A readable file whose contents are not a valid image -> INVALID_IMAGE. */
   f = fopen(bogus, "wb");
@@ -252,7 +263,8 @@ test_load_errors(void)
 }
 
 static void
-run_file_roundtrip(const char *path, stegify_image_format_t fmt, const char *label)
+run_file_roundtrip(
+  const char *path, stegify_image_format_t fmt, const char *label)
 {
   stegify_image_t img;
   stegify_image_t loaded;
@@ -267,7 +279,8 @@ run_file_roundtrip(const char *path, stegify_image_format_t fmt, const char *lab
   img.format = fmt;
   plen = (uint32_t)strlen(payload);
 
-  s = stegify_embed(&img, (const uint8_t *)payload, plen, STEGIFY_ATTR_WITH_SIZE);
+  s =
+    stegify_embed(&img, (const uint8_t *)payload, plen, STEGIFY_ATTR_WITH_SIZE);
   snprintf(msg, sizeof(msg), "%s: embed returns OK", label);
   CHECK(s == STEGIFY_OK, msg);
 
@@ -319,13 +332,15 @@ test_encoder_from_output_path(void)
     fread(magic, 1, sizeof(magic), f);
     fclose(f);
   }
-  CHECK(magic[0] == 'B' && magic[1] == 'M', "saved file carries a BMP signature");
+  CHECK(
+    magic[0] == 'B' && magic[1] == 'M', "saved file carries a BMP signature");
   remove(bmp_path);
 
   /* an unsupported output extension is rejected before writing */
   img = make_image(16, 16, 3);
   s = stegify_image_save("stegify_test_out.jpg", &img);
-  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT, "save to an unsupported extension is rejected");
+  CHECK(s == STEGIFY_ERR_UNSUPPORTED_FORMAT,
+    "save to an unsupported extension is rejected");
   free_image(&img);
 }
 
@@ -348,8 +363,8 @@ struct test_case {
   test_fn fn;
 };
 
-static const struct test_case TESTS[] = {
-  { "roundtrip_header", test_roundtrip_header },
+static const struct test_case TESTS[] = { { "roundtrip_header",
+                                            test_roundtrip_header },
   { "roundtrip_noheader", test_roundtrip_noheader },
   { "capacity_boundary", test_capacity_boundary },
   { "capacity_underflow", test_capacity_underflow },
@@ -357,12 +372,9 @@ static const struct test_case TESTS[] = {
   { "zero_payload", test_zero_payload },
   { "tiny_image_embed", test_tiny_image_embed },
   { "tiny_image_extract", test_tiny_image_extract },
-  { "invalid_input", test_invalid_input },
-  { "load_errors", test_load_errors },
+  { "invalid_input", test_invalid_input }, { "load_errors", test_load_errors },
   { "encoder_from_output_path", test_encoder_from_output_path },
-  { "png_file", test_png_file },
-  { "bmp_file", test_bmp_file }
-};
+  { "png_file", test_png_file }, { "bmp_file", test_bmp_file } };
 
 int
 main(int argc, char **argv)

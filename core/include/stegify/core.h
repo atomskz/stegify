@@ -9,20 +9,20 @@ extern "C" {
 #endif
 
 typedef enum {
-    STEGIFY_OK = 0,
-    STEGIFY_ERR_INVALID_INPUT,
-    STEGIFY_ERR_INVALID_IMAGE,
-    STEGIFY_ERR_UNSUPPORTED_FORMAT,
-    STEGIFY_ERR_INSUFFICIENT_CAPACITY,
-    STEGIFY_ERR_MEMORY_ALLOC,
-    STEGIFY_ERR_FILE_IO,
-    STEGIFY_ERR_CORRUPTED_DATA
+  STEGIFY_OK = 0,
+  STEGIFY_ERR_INVALID_INPUT,
+  STEGIFY_ERR_INVALID_IMAGE,
+  STEGIFY_ERR_UNSUPPORTED_FORMAT,
+  STEGIFY_ERR_INSUFFICIENT_CAPACITY,
+  STEGIFY_ERR_MEMORY_ALLOC,
+  STEGIFY_ERR_FILE_IO,
+  STEGIFY_ERR_CORRUPTED_DATA
 } stegify_status_t;
 
 typedef enum {
-    STEGIFY_FORMAT_UNKNOWN = -1,
-    STEGIFY_FORMAT_PNG = 0,
-    STEGIFY_FORMAT_BMP
+  STEGIFY_FORMAT_UNKNOWN = -1,
+  STEGIFY_FORMAT_PNG = 0,
+  STEGIFY_FORMAT_BMP
 } stegify_image_format_t;
 
 /*
@@ -30,16 +30,14 @@ typedef enum {
  * stegify_extract (passed as an int). STEGIFY_ATTR_WITH_SIZE writes/reads the
  * payload header; pass 0 for a raw payload with no header.
  */
-typedef enum {
-    STEGIFY_ATTR_WITH_SIZE = 1
-} stegify_attribute_t;
+typedef enum { STEGIFY_ATTR_WITH_SIZE = 1 } stegify_attribute_t;
 
 typedef struct {
-    uint8_t *data;
-    uint32_t width;
-    uint32_t height;
-    uint8_t channels;
-    stegify_image_format_t format;
+  uint8_t *data;
+  uint32_t width;
+  uint32_t height;
+  uint8_t channels;
+  stegify_image_format_t format;
 } stegify_image_t;
 
 /*
@@ -50,9 +48,7 @@ typedef struct {
  * or INVALID_IMAGE (not a decodable image, or larger than the size limit).
  */
 stegify_status_t
-stegify_image_load(
-    const char *filepath,
-    stegify_image_t *image);
+stegify_image_load(const char *filepath, stegify_image_t *image);
 
 /* Free the pixel buffer owned by image and set image->data to NULL. */
 void
@@ -64,9 +60,7 @@ stegify_image_free(stegify_image_t *image);
  * STEGIFY_OK, INVALID_INPUT, UNSUPPORTED_FORMAT, or FILE_IO.
  */
 stegify_status_t
-stegify_image_save(
-    const char *filepath,
-    const stegify_image_t *image);
+stegify_image_save(const char *filepath, const stegify_image_t *image);
 
 /*
  * Maximum payload size, in bytes, that fits in image for the given attributes.
@@ -84,11 +78,8 @@ stegify_get_max_capacity(const stegify_image_t *image, int attributes);
  * INVALID_INPUT (NULL or empty), or INSUFFICIENT_CAPACITY.
  */
 stegify_status_t
-stegify_embed(
-    stegify_image_t *image,
-    const uint8_t *data,
-    uint32_t data_size,
-    int attributes);
+stegify_embed(stegify_image_t *image, const uint8_t *data, uint32_t data_size,
+  int attributes);
 
 /*
  * Extract a payload from image into data. *data_size is in/out: on entry it is
@@ -99,11 +90,8 @@ stegify_embed(
  * INSUFFICIENT_CAPACITY, or CORRUPTED_DATA (no valid header / no payload).
  */
 stegify_status_t
-stegify_extract(
-    const stegify_image_t *image,
-    uint8_t *data,
-    uint32_t *data_size,
-    int attributes);
+stegify_extract(const stegify_image_t *image, uint8_t *data,
+  uint32_t *data_size, int attributes);
 
 /* Return a static, human-readable description of a status code. */
 const char *

@@ -70,12 +70,9 @@ stegify_write_file(const char *path, const uint8_t *data, size_t size)
 }
 
 stegify_status_t
-stegify_ops_embed(const char *image_path,
-                  const uint8_t *payload,
-                  size_t payload_size,
-                  const char *output_path,
-                  int with_size_header,
-                  size_t *capacity_remaining)
+stegify_ops_embed(const char *image_path, const uint8_t *payload,
+  size_t payload_size, const char *output_path, int with_size_header,
+  size_t *capacity_remaining)
 {
   stegify_image_t image;
   stegify_status_t status;
@@ -108,17 +105,16 @@ stegify_ops_embed(const char *image_path,
   }
 
   if (capacity_remaining != NULL)
-    *capacity_remaining = stegify_get_max_capacity(&image, attributes) - payload_size;
+    *capacity_remaining =
+      stegify_get_max_capacity(&image, attributes) - payload_size;
 
   stegify_image_free(&image);
   return STEGIFY_OK;
 }
 
 stegify_status_t
-stegify_ops_extract(const char *image_path,
-                    uint32_t explicit_size,
-                    uint8_t **out_data,
-                    uint32_t *out_size)
+stegify_ops_extract(const char *image_path, uint32_t explicit_size,
+  uint8_t **out_data, uint32_t *out_size)
 {
   stegify_image_t image;
   stegify_status_t status;
@@ -174,9 +170,8 @@ stegify_ops_extract(const char *image_path,
 }
 
 stegify_status_t
-stegify_ops_capacity(const char *image_path,
-                     size_t *capacity_with_header,
-                     size_t *capacity_no_header)
+stegify_ops_capacity(const char *image_path, size_t *capacity_with_header,
+  size_t *capacity_no_header)
 {
   stegify_image_t image;
   stegify_status_t status;
@@ -191,7 +186,8 @@ stegify_ops_capacity(const char *image_path,
     return status;
 
   if (capacity_with_header != NULL)
-    *capacity_with_header = stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE);
+    *capacity_with_header =
+      stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE);
   if (capacity_no_header != NULL)
     *capacity_no_header = stegify_get_max_capacity(&image, 0);
 

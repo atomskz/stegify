@@ -26,8 +26,8 @@ embed_example(void)
     return 1;
   }
 
-  status = stegify_embed(&image, (const uint8_t *)payload, payload_size,
-                         STEGIFY_ATTR_WITH_SIZE);
+  status = stegify_embed(
+    &image, (const uint8_t *)payload, payload_size, STEGIFY_ATTR_WITH_SIZE);
   if (status == STEGIFY_OK)
     status = stegify_image_save("stego.png", &image);
 
@@ -40,7 +40,8 @@ extract_example(void)
 {
   stegify_image_t image;
   uint8_t buffer[4096];
-  uint32_t size = sizeof(buffer); /* in: buffer capacity, out: bytes extracted */
+  uint32_t size =
+    sizeof(buffer); /* in: buffer capacity, out: bytes extracted */
   stegify_status_t status;
 
   if (stegify_image_load("stego.png", &image) != STEGIFY_OK)

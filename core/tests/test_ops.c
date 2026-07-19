@@ -15,12 +15,12 @@
 
 static int g_failures;
 
-#define CHECK(cond, msg) \
-  do { \
-    if (!(cond)) { \
+#define CHECK(cond, msg)                      \
+  do {                                        \
+    if (!(cond)) {                            \
       fprintf(stderr, "  FAIL: %s\n", (msg)); \
-      g_failures++; \
-    } \
+      g_failures++;                           \
+    }                                         \
   } while (0)
 
 /* Create a small cover PNG on disk for the workflow tests. */
@@ -61,7 +61,8 @@ test_file_io(void)
   s = stegify_read_file(path, &read_back, &size);
   CHECK(s == STEGIFY_OK, "read_file returns OK");
   CHECK(size == sizeof(data), "read_file reports the right size");
-  CHECK(memcmp(read_back, data, sizeof(data)) == 0, "read_file returns the bytes written");
+  CHECK(memcmp(read_back, data, sizeof(data)) == 0,
+    "read_file returns the bytes written");
   free(read_back);
   remove(path);
 
@@ -84,14 +85,16 @@ test_ops_roundtrip(void)
   CHECK(make_cover(cover), "created cover image");
 
   remaining = 0;
-  s = stegify_ops_embed(cover, (const uint8_t *)payload, payload_size, stego, 1, &remaining);
+  s = stegify_ops_embed(
+    cover, (const uint8_t *)payload, payload_size, stego, 1, &remaining);
   CHECK(s == STEGIFY_OK, "ops_embed returns OK");
   CHECK(remaining > 0, "ops_embed reports remaining capacity");
 
   s = stegify_ops_extract(stego, 0, &out, &out_size);
   CHECK(s == STEGIFY_OK, "ops_extract returns OK");
   CHECK(out_size == payload_size, "extracted size matches");
-  CHECK(memcmp(out, payload, payload_size) == 0, "payload round-trips through files");
+  CHECK(memcmp(out, payload, payload_size) == 0,
+    "payload round-trips through files");
   free(out);
 
   remove(cover);
@@ -111,13 +114,16 @@ test_ops_roundtrip_no_header(void)
 
   CHECK(make_cover(cover), "created cover image");
 
-  s = stegify_ops_embed(cover, (const uint8_t *)payload, payload_size, stego, 0, NULL);
+  s = stegify_ops_embed(
+    cover, (const uint8_t *)payload, payload_size, stego, 0, NULL);
   CHECK(s == STEGIFY_OK, "headerless ops_embed returns OK");
 
   s = stegify_ops_extract(stego, payload_size, &out, &out_size);
-  CHECK(s == STEGIFY_OK, "headerless ops_extract with explicit size returns OK");
+  CHECK(
+    s == STEGIFY_OK, "headerless ops_extract with explicit size returns OK");
   CHECK(out_size == payload_size, "headerless extracted size matches");
-  CHECK(memcmp(out, payload, payload_size) == 0, "headerless payload round-trips");
+  CHECK(
+    memcmp(out, payload, payload_size) == 0, "headerless payload round-trips");
   free(out);
 
   remove(cover);
@@ -152,7 +158,8 @@ test_ops_no_payload(void)
 
   CHECK(make_cover(cover), "created cover image");
   s = stegify_ops_extract(cover, 0, &out, &out_size);
-  CHECK(s == STEGIFY_ERR_CORRUPTED_DATA, "extract from an image with no payload is CORRUPTED_DATA");
+  CHECK(s == STEGIFY_ERR_CORRUPTED_DATA,
+    "extract from an image with no payload is CORRUPTED_DATA");
   remove(cover);
 }
 
@@ -163,13 +170,11 @@ struct test_case {
   test_fn fn;
 };
 
-static const struct test_case TESTS[] = {
-  { "file_io", test_file_io },
+static const struct test_case TESTS[] = { { "file_io", test_file_io },
   { "ops_roundtrip", test_ops_roundtrip },
   { "ops_roundtrip_no_header", test_ops_roundtrip_no_header },
   { "ops_capacity", test_ops_capacity },
-  { "ops_no_payload", test_ops_no_payload }
-};
+  { "ops_no_payload", test_ops_no_payload } };
 
 int
 main(int argc, char **argv)

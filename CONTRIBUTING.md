@@ -21,8 +21,9 @@ ctest --test-dir build --output-on-failure
 
 - Target C99 and keep the build warning-clean under `-Wall -Wextra` (GCC/Clang)
   and `/W4` (MSVC).
-- Match the existing code style: declarations at the top of a block, two-space
-  indentation, and the return type on its own line before a definition.
+- Format code with clang-format before committing (`clang-format -i <files>`);
+  the style is defined in `.clang-format` and enforced in CI. Keep declarations
+  at the top of each block (C89 style), which the formatter does not impose.
 - Add or update tests under the relevant component (`core/tests/`, `cli/tests/`)
   for any behavior change, and keep the suite green.
 - Keep `README.md` and `CHANGELOG.md` in sync with user-facing changes.

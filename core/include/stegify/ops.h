@@ -42,12 +42,9 @@ stegify_write_file(const char *path, const uint8_t *data, size_t size);
  * underlying load/embed/save.
  */
 stegify_status_t
-stegify_ops_embed(const char *image_path,
-                  const uint8_t *payload,
-                  size_t payload_size,
-                  const char *output_path,
-                  int with_size_header,
-                  size_t *capacity_remaining);
+stegify_ops_embed(const char *image_path, const uint8_t *payload,
+  size_t payload_size, const char *output_path, int with_size_header,
+  size_t *capacity_remaining);
 
 /*
  * Load image_path and extract a payload into a newly allocated buffer. On
@@ -57,19 +54,16 @@ stegify_ops_embed(const char *image_path,
  * STEGIFY_OK, CORRUPTED_DATA (no valid payload), or another core status.
  */
 stegify_status_t
-stegify_ops_extract(const char *image_path,
-                    uint32_t explicit_size,
-                    uint8_t **out_data,
-                    uint32_t *out_size);
+stegify_ops_extract(const char *image_path, uint32_t explicit_size,
+  uint8_t **out_data, uint32_t *out_size);
 
 /*
  * Load image_path and report its payload capacity for both modes. Either
  * output pointer may be NULL. Returns STEGIFY_OK or a load status.
  */
 stegify_status_t
-stegify_ops_capacity(const char *image_path,
-                     size_t *capacity_with_header,
-                     size_t *capacity_no_header);
+stegify_ops_capacity(const char *image_path, size_t *capacity_with_header,
+  size_t *capacity_no_header);
 
 #ifdef __cplusplus
 }

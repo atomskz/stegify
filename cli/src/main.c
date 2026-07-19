@@ -129,7 +129,8 @@ parse_embed_options(int argc, char **argv, cli_options_t *options)
   for (i = 3; i < argc; i++) {
     if (strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "-f") == 0) {
       if (options->message != NULL || options->data_file_path != NULL) {
-        fprintf(stderr, "stegify: -m and -f are mutually exclusive and may be given once\n");
+        fprintf(stderr,
+          "stegify: -m and -f are mutually exclusive and may be given once\n");
         return 0;
       }
       if (i + 1 >= argc) {
@@ -216,7 +217,8 @@ parse_extract_options(int argc, char **argv, cli_options_t *options)
         fprintf(stderr, "stegify: option '-s' requires an argument\n");
         return 0;
       }
-      if (!parse_u32(argv[++i], &options->extract_size) || options->extract_size == 0) {
+      if (!parse_u32(argv[++i], &options->extract_size) ||
+          options->extract_size == 0) {
         fprintf(stderr, "stegify: invalid size '%s' for -s\n", argv[i]);
         return 0;
       }
@@ -247,7 +249,8 @@ handle_embed(const char *image_path, const cli_options_t *options)
     payload = (const uint8_t *)options->message;
     payload_size = strlen(options->message);
   } else {
-    status = stegify_read_file(options->data_file_path, &file_payload, &payload_size);
+    status =
+      stegify_read_file(options->data_file_path, &file_payload, &payload_size);
     if (status != STEGIFY_OK) {
       fprintf(stderr, "Failed to read data file '%s': %s\n",
         options->data_file_path, stegify_error_string(status));
@@ -257,7 +260,8 @@ handle_embed(const char *image_path, const cli_options_t *options)
   }
 
   status = stegify_ops_embed(image_path, payload, payload_size,
-    options->output_file_path, options->no_size_header ? 0 : 1, &capacity_remaining);
+    options->output_file_path, options->no_size_header ? 0 : 1,
+    &capacity_remaining);
   if (status != STEGIFY_OK) {
     fprintf(stderr, "Failed to embed data: %s\n", stegify_error_string(status));
     free(file_payload);
@@ -296,7 +300,8 @@ handle_extract(const char *image_path, const cli_options_t *options)
       fprintf(stderr,
         "No stegify payload detected. If it was embedded with -n, re-run extract with -s <size>.\n");
     else
-      fprintf(stderr, "Failed to extract data: %s\n", stegify_error_string(status));
+      fprintf(
+        stderr, "Failed to extract data: %s\n", stegify_error_string(status));
     return 1;
   }
 
@@ -316,7 +321,8 @@ handle_extract(const char *image_path, const cli_options_t *options)
   } else {
     fprintf(stderr,
       "Extract completed: %u bytes extracted from '%s' (size source: %s).\n",
-      data_size, image_path, options->has_extract_size ? "flag -s" : "container header");
+      data_size, image_path,
+      options->has_extract_size ? "flag -s" : "container header");
   }
 
   if (options->print_data && data_size > 0) {
