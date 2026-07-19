@@ -6,6 +6,7 @@
 #include <string.h>
 
 #include "stegify.h"
+#include "stegify_app.h"
 
 #define STEGIFY_VERSION "0.1.0"
 
@@ -60,76 +61,6 @@ print_help(void)
     "The image path must come first, before any options.\n"
     "\n"
     "Supported image formats: PNG, BMP.\n");
-}
-
-static int
-read_file_to_buffer(const char *path, uint8_t **buffer, size_t *size)
-{
-  FILE *file;
-  long file_size;
-  size_t read_bytes;
-  uint8_t *data;
-
-  if (path == NULL || buffer == NULL || size == NULL)
-    return 0;
-
-  file = fopen(path, "rb");
-  if (file == NULL)
-    return 0;
-
-  if (fseek(file, 0, SEEK_END) != 0) {
-    fclose(file);
-    return 0;
-  }
-
-  file_size = ftell(file);
-  if (file_size < 0) {
-    fclose(file);
-    return 0;
-  }
-
-  if (fseek(file, 0, SEEK_SET) != 0) {
-    fclose(file);
-    return 0;
-  }
-
-  data = (uint8_t *)malloc((size_t)file_size);
-  if (data == NULL && file_size != 0) {
-    fclose(file);
-    return 0;
-  }
-
-  read_bytes = fread(data, 1, (size_t)file_size, file);
-  fclose(file);
-
-  if (read_bytes != (size_t)file_size) {
-    free(data);
-    return 0;
-  }
-
-  *buffer = data;
-  *size = (size_t)file_size;
-
-  return 1;
-}
-
-static int
-write_buffer_to_file(const char *path, const uint8_t *data, size_t size)
-{
-  FILE *file;
-  size_t written;
-
-  if (path == NULL || data == NULL)
-    return 0;
-
-  file = fopen(path, "wb");
-  if (file == NULL)
-    return 0;
-
-  written = fwrite(data, 1, size, file);
-  fclose(file);
-
-  return written == size;
 }
 
 static void
@@ -303,146 +234,78 @@ parse_extract_options(int argc, char **argv, cli_options_t *options)
 static int
 handle_embed(const char *image_path, const cli_options_t *options)
 {
-  stegify_image_t image;
-  stegify_status_t status;
-  uint8_t *payload;
+  const uint8_t *payload;
+  uint8_t *file_payload;
   size_t payload_size;
-  size_t max_capacity;
-  int attributes;
-  int ok;
+  size_t capacity_remaining;
+  stegify_status_t status;
 
-  memset(&image, 0, sizeof(image));
-  payload = NULL;
-  payload_size = 0;
-
-  status = stegify_image_load(image_path, &image);
-  if (status != STEGIFY_OK) {
-    fprintf(stderr, "Failed to load image: %s\n", stegify_error_string(status));
-    return 1;
-  }
+  file_payload = NULL;
+  capacity_remaining = 0;
 
   if (options->message != NULL) {
-    payload = (uint8_t *)options->message;
+    payload = (const uint8_t *)options->message;
     payload_size = strlen(options->message);
   } else {
-    ok = read_file_to_buffer(options->data_file_path, &payload, &payload_size);
-    if (!ok) {
-      fprintf(stderr, "Failed to read data file: %s\n", options->data_file_path);
-      stegify_image_free(&image);
+    status = stegify_read_file(options->data_file_path, &file_payload, &payload_size);
+    if (status != STEGIFY_OK) {
+      fprintf(stderr, "Failed to read data file '%s': %s\n",
+        options->data_file_path, stegify_error_string(status));
       return 1;
     }
+    payload = file_payload;
   }
 
-  if (payload_size > UINT32_MAX) {
-    fprintf(stderr, "Payload is too large.\n");
-    if (options->data_file_path != NULL)
-      free(payload);
-    stegify_image_free(&image);
-    return 1;
-  }
-
-  attributes = options->no_size_header ? 0 : STEGIFY_ATTR_WITH_SIZE;
-  status = stegify_embed(&image, payload, (uint32_t)payload_size, attributes);
+  status = stegify_app_embed(image_path, payload, payload_size,
+    options->output_file_path, options->no_size_header ? 0 : 1, &capacity_remaining);
   if (status != STEGIFY_OK) {
     fprintf(stderr, "Failed to embed data: %s\n", stegify_error_string(status));
-    if (options->data_file_path != NULL)
-      free(payload);
-    stegify_image_free(&image);
+    free(file_payload);
     return 1;
   }
 
-  status = stegify_image_save(options->output_file_path, &image);
-  if (status != STEGIFY_OK) {
-    fprintf(stderr, "Failed to save image: %s\n", stegify_error_string(status));
-    if (options->data_file_path != NULL)
-      free(payload);
-    stegify_image_free(&image);
-    return 1;
-  }
-
-  max_capacity = stegify_get_max_capacity(&image,
-    options->no_size_header ? 0 : STEGIFY_ATTR_WITH_SIZE);
   fprintf(stderr,
     "Embed completed: %zu bytes embedded into '%s' and saved to '%s' (capacity remaining: %zu bytes, size header: %s).\n",
-    payload_size, image_path, options->output_file_path, max_capacity - payload_size,
+    payload_size, image_path, options->output_file_path, capacity_remaining,
     options->no_size_header ? "disabled" : "enabled");
 
   if (options->print_data) {
     fprintf(stderr, "Embedded payload (hex+ASCII):\n");
-    print_hex_ascii_table(
-      options->message != NULL ? (const uint8_t *)options->message : payload,
-      payload_size);
+    print_hex_ascii_table(payload, payload_size);
   }
 
-  if (options->data_file_path != NULL)
-    free(payload);
-
-  stegify_image_free(&image);
+  free(file_payload);
   return 0;
 }
 
 static int
 handle_extract(const char *image_path, const cli_options_t *options)
 {
-  stegify_image_t image;
-  stegify_status_t status;
-  size_t max_capacity;
   uint8_t *buffer;
   uint32_t data_size;
-  int attributes;
-  int ok;
+  uint32_t explicit_size;
+  stegify_status_t status;
 
-  memset(&image, 0, sizeof(image));
   buffer = NULL;
+  data_size = 0;
+  explicit_size = options->has_extract_size ? options->extract_size : 0;
 
-  status = stegify_image_load(image_path, &image);
-  if (status != STEGIFY_OK) {
-    fprintf(stderr, "Failed to load image: %s\n", stegify_error_string(status));
-    return 1;
-  }
-
-  max_capacity = stegify_get_max_capacity(&image,
-    options->has_extract_size ? 0 : STEGIFY_ATTR_WITH_SIZE);
-  if (max_capacity == 0 || max_capacity > UINT32_MAX) {
-    fprintf(stderr, "Invalid image capacity.\n");
-    stegify_image_free(&image);
-    return 1;
-  }
-
-  if (options->has_extract_size && options->extract_size > max_capacity) {
-    fprintf(stderr, "Requested extract size exceeds image capacity.\n");
-    stegify_image_free(&image);
-    return 1;
-  }
-
-  data_size = options->has_extract_size ? options->extract_size : (uint32_t)max_capacity;
-  buffer = (uint8_t *)malloc(data_size == 0 ? 1 : data_size);
-  if (buffer == NULL) {
-    fprintf(stderr, "Failed to allocate extraction buffer.\n");
-    stegify_image_free(&image);
-    return 1;
-  }
-
-  attributes = options->has_extract_size ? 0 : STEGIFY_ATTR_WITH_SIZE;
-
-  status = stegify_extract(&image, buffer, &data_size, attributes);
+  status = stegify_app_extract(image_path, explicit_size, &buffer, &data_size);
   if (status != STEGIFY_OK) {
     if (status == STEGIFY_ERR_CORRUPTED_DATA)
       fprintf(stderr,
         "No stegify payload detected. If it was embedded with -n, re-run extract with -s <size>.\n");
     else
       fprintf(stderr, "Failed to extract data: %s\n", stegify_error_string(status));
-    free(buffer);
-    stegify_image_free(&image);
     return 1;
   }
 
   if (options->output_file_path != NULL) {
-    ok = write_buffer_to_file(options->output_file_path, buffer, data_size);
-    if (!ok) {
-      fprintf(stderr, "Failed to write output file: %s\n", options->output_file_path);
+    status = stegify_write_file(options->output_file_path, buffer, data_size);
+    if (status != STEGIFY_OK) {
+      fprintf(stderr, "Failed to write output file '%s': %s\n",
+        options->output_file_path, stegify_error_string(status));
       free(buffer);
-      stegify_image_free(&image);
       return 1;
     }
 
@@ -462,32 +325,27 @@ handle_extract(const char *image_path, const cli_options_t *options)
   }
 
   free(buffer);
-  stegify_image_free(&image);
   return 0;
 }
 
 static int
 handle_size(const char *image_path)
 {
-  stegify_image_t image;
-  stegify_status_t status;
   size_t cap_header;
   size_t cap_raw;
+  stegify_status_t status;
 
-  memset(&image, 0, sizeof(image));
+  cap_header = 0;
+  cap_raw = 0;
 
-  status = stegify_image_load(image_path, &image);
+  status = stegify_app_capacity(image_path, &cap_header, &cap_raw);
   if (status != STEGIFY_OK) {
     fprintf(stderr, "Failed to load image: %s\n", stegify_error_string(status));
     return 1;
   }
 
-  cap_header = stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE);
-  cap_raw = stegify_get_max_capacity(&image, 0);
   printf("capacity: %zu bytes with size header, %zu bytes with -n (%.3f MiB)\n",
     cap_header, cap_raw, (double)cap_header / (1024.0 * 1024.0));
-
-  stegify_image_free(&image);
   return 0;
 }
 

@@ -35,12 +35,18 @@ each byte of the pixel data.
 
 ## Project layout
 
+The code is split into layers so that alternative frontends (such as a GUI) can
+reuse the application logic without touching the terminal code:
+
 - `CMakeLists.txt` — CMake build.
-- `src/main.c` — CLI and argument parsing.
-- `src/stegify.h` — public library API.
-- `src/stegify.c` — steganography and image I/O implementation.
+- `src/stegify.h` / `src/stegify.c` — core library: the LSB algorithm and image I/O.
+- `src/stegify_app.h` / `src/stegify_app.c` — application layer: UI-agnostic file
+  workflows (embed, extract, capacity, file read/write) built on the core. Returns
+  status codes and data; it never reads arguments, prints, or exits.
+- `src/main.c` — the CLI frontend (argument parsing and formatting) built on the
+  application layer.
 - `src/stbi_impl.c` — compiles the `stb_image` / `stb_image_write` implementations.
-- `tests/` — CTest-driven library and CLI tests.
+- `tests/` — CTest-driven core, application, and CLI tests.
 
 ## Requirements
 

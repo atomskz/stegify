@@ -76,7 +76,7 @@ target_compile_options(stegify_app PRIVATE ${STEGIFY_WARNING_FLAGS})
 target_compile_definitions(stegify_app PRIVATE ${STEGIFY_MSVC_DEFS})
 
 add_executable(stegify src/main.c)
-target_link_libraries(stegify PRIVATE stegify_core)
+target_link_libraries(stegify PRIVATE stegify_app)
 target_compile_options(stegify PRIVATE ${STEGIFY_WARNING_FLAGS})
 target_compile_definitions(stegify PRIVATE ${STEGIFY_MSVC_DEFS})
 
