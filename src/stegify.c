@@ -145,7 +145,8 @@ extract_bit(uint8_t source)
 static void
 stegify_iter_init(stegify_position_iter_t *iter)
 {
-  iter->current_pos = -1;
+  /* Starts one before position 0; the first stegify_iter_next() wraps to 0. */
+  iter->current_pos = (size_t)-1;
   iter->step = 1;
 }
 
