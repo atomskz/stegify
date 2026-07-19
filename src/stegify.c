@@ -7,6 +7,12 @@
 
 #define BITS_IN_BYTE (8)
 
+/* Upper bound on a decoded image, so a small but highly compressible file
+ * cannot force a huge allocation. Override with -DSTEGIFY_MAX_IMAGE_BYTES. */
+#ifndef STEGIFY_MAX_IMAGE_BYTES
+#define STEGIFY_MAX_IMAGE_BYTES ((size_t)256 * 1024 * 1024)
+#endif
+
 /*
  * In size-header mode the payload is preceded by a fixed header:
  *   4-byte magic "STGF" | 1-byte format version | 4-byte payload size.
@@ -79,6 +85,11 @@ stegify_image_load(
   pixels = stbi_load(filepath, &width, &height, &channels, 0);
   if (pixels == NULL)
     return STEGIFY_ERR_INVALID_IMAGE;
+
+  if ((size_t)width * height * channels > STEGIFY_MAX_IMAGE_BYTES) {
+    stbi_image_free(pixels);
+    return STEGIFY_ERR_INVALID_IMAGE;
+  }
 
   image->data = (uint8_t *)pixels;
   image->width = (uint32_t)width;
