@@ -17,3 +17,10 @@ build/
 #  and can be added to the global gitignore or merged into this file.  For a more nuclear
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #cmake-build-*
+
+# Editor settings
+.vscode/
+
+# Scratch sample images at the repo root (the test fixture lives in tests/fixtures)
+/cover.png
+/cover.jpg
