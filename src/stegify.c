@@ -17,7 +17,9 @@
  * In size-header mode the payload is preceded by a fixed header:
  *   4-byte magic "STGF" | 1-byte format version | 4-byte payload size.
  * The magic lets extract detect that an image carries no stegify payload
- * instead of returning random bytes as if they were data.
+ * instead of returning random bytes as if they were data. The size is stored
+ * in the host's native byte order, so stego images are not portable between
+ * machines of differing endianness.
  */
 #define STEGIFY_MAGIC_LEN 4
 #define STEGIFY_FORMAT_VERSION 1
@@ -175,8 +177,9 @@ extract_bit(uint8_t source)
 
 /*
  * The payload is laid out one bit per image byte, starting at *pos and
- * advancing sequentially; each helper resumes from where the previous left
- * off. Callers guarantee (via the capacity checks) that *pos stays in bounds.
+ * advancing sequentially; within each source byte the least-significant bit is
+ * stored first. Each helper resumes from where the previous one left off, and
+ * callers guarantee (via the capacity checks) that *pos stays in bounds.
  */
 static void
 stegify_write_buffer_to_image_lsb(
