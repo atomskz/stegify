@@ -265,6 +265,20 @@ Status codes in `stegify_status_t`:
 - The output path is trusted and overwritten without confirmation; make sure it
   does not point to a file you want to keep.
 
+## Security / threat model
+
+stegify hides data; it does not protect it. LSB steganography:
+
+- provides **no confidentiality** — the payload is stored in plaintext and is
+  trivially recoverable by anyone who looks;
+- provides **no integrity or authentication** — beyond the header's magic check, a
+  modified container is not detected;
+- is **easily detected** by standard steganalysis;
+- **survives only lossless, unmodified** PNG/BMP containers.
+
+If you need secrecy or tamper-resistance, encrypt and authenticate the payload
+before embedding it.
+
 ## End-to-end example
 
 ```bash
