@@ -15,6 +15,10 @@ add_library(stb_image STATIC src/stbi_impl.c)
 target_include_directories(stb_image SYSTEM PUBLIC ${stb_SOURCE_DIR})
 # No libm needed: stbi_impl.c disables stb's HDR/float loaders, the only stb
 # code that calls pow().
+# Section-per-function so the linker's dead-strip can drop stb's unreferenced
+# encoders (TGA/HDR/JPEG); stb is not routed through stegify_configure_target,
+# so apply the flag here. The matching link-side strip lives on the executables.
+target_compile_options(stb_image PRIVATE ${STEGIFY_GC_COMPILE})
 
 add_library(stegify_core STATIC src/core.c src/ops.c)
 target_include_directories(stegify_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
