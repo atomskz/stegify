@@ -23,6 +23,6 @@ ctest --test-dir build --output-on-failure
   and `/W4` (MSVC).
 - Match the existing code style: declarations at the top of a block, two-space
   indentation, and the return type on its own line before a definition.
-- Add or update tests under `tests/` for any behavior change, and keep the suite
-  green.
+- Add or update tests under the relevant component (`core/tests/`, `cli/tests/`)
+  for any behavior change, and keep the suite green.
 - Keep `README.md` and `CHANGELOG.md` in sync with user-facing changes.

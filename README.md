@@ -4,10 +4,10 @@
 images using the LSB (Least Significant Bit) method.
 
 The project consists of:
-- a CLI tool (`src/main.c`) for everyday use;
-- a library (`src/stegify_core.c`, `src/stegify_core.h`) with an API for loading/saving
-  images and performing the steganography operations;
-- the `stb_image`/`stb_image_write` translation unit (`src/stbi_impl.c`) for
+- the core library (`core/`) with an API for loading/saving images and performing
+  the steganography operations;
+- a CLI frontend (`cli/`) for everyday use, built on the core;
+- the `stb_image`/`stb_image_write` translation unit (`core/src/stbi_impl.c`) for
   reading and writing PNG and BMP.
 
 ## How it works
@@ -35,18 +35,23 @@ each byte of the pixel data.
 
 ## Project layout
 
-The code is split into layers so that alternative frontends (such as a GUI) can
-reuse the application logic without touching the terminal code:
+The code is split into components so that alternative frontends (such as a GUI)
+can reuse the application logic without touching the terminal code. Each is a
+CMake subdirectory with its own build file:
 
-- `CMakeLists.txt` — CMake build.
-- `src/stegify_core.h` / `src/stegify_core.c` — core library: the LSB algorithm and image I/O.
-- `src/stegify_app.h` / `src/stegify_app.c` — application layer: UI-agnostic file
-  workflows (embed, extract, capacity, file read/write) built on the core. Returns
-  status codes and data; it never reads arguments, prints, or exits.
-- `src/main.c` — the CLI frontend (argument parsing and formatting) built on the
-  application layer.
-- `src/stbi_impl.c` — compiles the `stb_image` / `stb_image_write` implementations.
-- `tests/` — CTest-driven core, application, and CLI tests.
+- `core/` — the core library `stegify_core`:
+  - `core/include/stegify/core.h` — public API: the LSB algorithm and image I/O.
+  - `core/include/stegify/app.h` — public API: UI-agnostic file workflows (embed,
+    extract, capacity, file read/write). Returns status codes and data; it never
+    reads arguments, prints, or exits.
+  - `core/src/` — implementation, including the `stb_image` translation unit.
+  - `core/tests/`, `core/examples/`.
+- `cli/` — the CLI frontend `stegify_cli` (binary: `stegify`), built on the core.
+  - `cli/src/main.c` — argument parsing and formatting.
+  - `cli/tests/` — the CLI round-trip test and its fixture.
+- `cmake/` — shared build settings.
+
+A future `gui/` frontend links `stegify_core` the same way `cli/` does.
 
 ## Requirements
 
@@ -180,7 +185,7 @@ Run `stegify size <image>` to see the exact capacity for both modes.
 
 ## Public library API
 
-Declared in `src/stegify_core.h`.
+Declared in `core/include/stegify/core.h` (included as `<stegify/core.h>`).
 
 Key functions:
 - `stegify_image_load(...)` — load an image.
@@ -198,14 +203,14 @@ The same `attributes` value must be used for `embed` and `extract`.
 
 ### Example
 
-A compilable version of this example lives in `examples/usage.c`.
+A compilable version of this example lives in `core/examples/usage.c`.
 
 ```c
 #include <stdint.h>
 #include <stdio.h>
 #include <string.h>
 
-#include "stegify_core.h"
+#include "stegify/core.h"
 
 int embed_example(void)
 {

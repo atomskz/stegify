@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 3.14)
 project(stegify C)
 
+# C++ is used only by the header C++-linkage test in the core component.
+enable_language(CXX)
+
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 
@@ -8,144 +11,18 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
 endif()
 
-# Warning flags applied to first-party targets only. The third-party stb
-# implementation is compiled as a separate target (below) without these flags.
-option(STEGIFY_WERROR "Treat first-party warnings as errors" OFF)
+option(STEGIFY_BUILD_CLI "Build the command-line frontend" ON)
 
-set(STEGIFY_WARNING_FLAGS
-  $<$<C_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
-  $<$<C_COMPILER_ID:MSVC>:/W4>
-  $<$<AND:$<BOOL:${STEGIFY_WERROR}>,$<C_COMPILER_ID:GNU,Clang,AppleClang>>:-Werror>
-  $<$<AND:$<BOOL:${STEGIFY_WERROR}>,$<C_COMPILER_ID:MSVC>>:/WX>)
-
-include(FetchContent)
-
-# stb publishes no tagged releases, so pin an exact commit for reproducible
-# builds. Pinned 2026-07-19; bump deliberately after verifying the new revision.
-# (GIT_SHALLOW is intentionally omitted: a shallow clone cannot resolve an
-# arbitrary commit hash, only a branch or tag.)
-FetchContent_Declare(
-  stb
-  GIT_REPOSITORY https://github.com/nothings/stb.git
-  GIT_TAG 31c1ad37456438565541f4919958214b6e762fb4
-)
-
-FetchContent_MakeAvailable(stb)
-
-# Third-party stb image decode/encode implementation. Its include directory is
-# exported as SYSTEM so warnings from stb headers do not reach first-party code.
-add_library(stb_image STATIC src/stbi_impl.c)
-target_include_directories(stb_image SYSTEM PUBLIC ${stb_SOURCE_DIR})
-
-# stb's image code calls pow(), which lives in a separate math library on some
-# platforms (Linux/glibc). Link it where it exists as a standalone library and
-# let it propagate to consumers; MSVC has no separate libm and macOS provides
-# the math functions through libSystem.
-find_library(STEGIFY_M_LIBRARY m)
-if(STEGIFY_M_LIBRARY)
-  target_link_libraries(stb_image PUBLIC ${STEGIFY_M_LIBRARY})
-endif()
-
-# Optional sanitizer build. Applied to targets declared after this point
-# (first-party code and tests); the stb target above stays uninstrumented.
-option(STEGIFY_SANITIZE "Build first-party targets with sanitizers" OFF)
-if(STEGIFY_SANITIZE)
-  if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
-    add_compile_options(-fsanitize=address,undefined -fno-sanitize-recover=all)
-    add_link_options(-fsanitize=address,undefined)
-  elseif(MSVC)
-    add_compile_options(/fsanitize=address)
-  endif()
-endif()
-
-# Use the portable C99 fopen without MSVC's non-standard "unsafe" deprecation.
-set(STEGIFY_MSVC_DEFS $<$<C_COMPILER_ID:MSVC>:_CRT_SECURE_NO_WARNINGS>)
-
-add_library(stegify_core STATIC src/stegify_core.c)
-target_include_directories(stegify_core PUBLIC src)
-target_link_libraries(stegify_core PUBLIC stb_image)
-target_compile_options(stegify_core PRIVATE ${STEGIFY_WARNING_FLAGS})
-target_compile_definitions(stegify_core PRIVATE ${STEGIFY_MSVC_DEFS})
-
-# UI-agnostic application/operations layer shared by the CLI and future
-# frontends (e.g. a GUI). Built on the core; performs no I/O of its own beyond
-# the file workflows it exposes.
-add_library(stegify_app STATIC src/stegify_app.c)
-target_link_libraries(stegify_app PUBLIC stegify_core)
-target_compile_options(stegify_app PRIVATE ${STEGIFY_WARNING_FLAGS})
-target_compile_definitions(stegify_app PRIVATE ${STEGIFY_MSVC_DEFS})
-
-add_executable(stegify src/main.c)
-target_link_libraries(stegify PRIVATE stegify_app)
-target_compile_options(stegify PRIVATE ${STEGIFY_WARNING_FLAGS})
-target_compile_definitions(stegify PRIVATE ${STEGIFY_MSVC_DEFS})
-
-# Compiled so the README library example is guaranteed to build.
-add_executable(example_usage examples/usage.c)
-target_link_libraries(example_usage PRIVATE stegify_core)
-target_compile_options(example_usage PRIVATE ${STEGIFY_WARNING_FLAGS})
-target_compile_definitions(example_usage PRIVATE ${STEGIFY_MSVC_DEFS})
-
-# Install the CLI, the core library (with its stb dependency), and the header
-# so the library is consumable by other projects.
+list(APPEND CMAKE_MODULE_PATH ${CMAKE_CURRENT_SOURCE_DIR}/cmake)
+include(StegifyHelpers)
 include(GNUInstallDirs)
-install(TARGETS stegify stegify_core stegify_app stb_image
-  RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
-  ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-  LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR})
-install(FILES src/stegify_core.h src/stegify_app.h DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
 
 enable_testing()
 
-add_executable(test_roundtrip tests/test_roundtrip.c)
-target_link_libraries(test_roundtrip PRIVATE stegify_core)
-target_compile_options(test_roundtrip PRIVATE ${STEGIFY_WARNING_FLAGS})
-target_compile_definitions(test_roundtrip PRIVATE ${STEGIFY_MSVC_DEFS})
+# Components. The core library is always built; frontends are opt-in and depend
+# only on the core (a future gui/ component slots in the same way).
+add_subdirectory(core)
 
-foreach(case
-    roundtrip_header
-    roundtrip_noheader
-    capacity_boundary
-    capacity_underflow
-    no_payload_detected
-    zero_payload
-    tiny_image_embed
-    tiny_image_extract
-    invalid_input
-    load_errors
-    encoder_from_output_path
-    png_file
-    bmp_file)
-  add_test(NAME ${case} COMMAND test_roundtrip ${case})
-endforeach()
-
-add_executable(test_app tests/test_app.c)
-target_link_libraries(test_app PRIVATE stegify_app)
-target_compile_options(test_app PRIVATE ${STEGIFY_WARNING_FLAGS})
-target_compile_definitions(test_app PRIVATE ${STEGIFY_MSVC_DEFS})
-
-foreach(case
-    file_io
-    app_roundtrip
-    app_roundtrip_no_header
-    app_capacity
-    app_no_payload)
-  add_test(NAME ${case} COMMAND test_app ${case})
-endforeach()
-
-add_test(
-  NAME cli_roundtrip
-  COMMAND ${CMAKE_COMMAND}
-    -DSTEGIFY_EXE=$<TARGET_FILE:stegify>
-    -DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/cover.png
-    -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}
-    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_roundtrip.cmake)
-
-add_test(NAME cli_help COMMAND stegify --help)
-add_test(NAME cli_version COMMAND stegify --version)
-
-# Confirm the public header is usable from C++ (extern "C" linkage).
-enable_language(CXX)
-add_executable(test_cpp_link tests/test_cpp_link.cpp)
-target_link_libraries(test_cpp_link PRIVATE stegify_core)
-add_test(NAME cpp_link COMMAND test_cpp_link)
+if(STEGIFY_BUILD_CLI)
+  add_subdirectory(cli)
+endif()

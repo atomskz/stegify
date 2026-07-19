@@ -1,7 +1,7 @@
-// Verifies that stegify_core.h can be included and linked from C++: without
+// Verifies that stegify/core.h can be included and linked from C++: without
 // the extern "C" guard the C symbols would be name-mangled and fail to link.
 
-#include "stegify_core.h"
+#include "stegify/core.h"
 
 int
 main()

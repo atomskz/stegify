@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "stegify_app.h"
+#include "stegify/app.h"
 
 stegify_status_t
 stegify_read_file(const char *path, uint8_t **buffer, size_t *size)

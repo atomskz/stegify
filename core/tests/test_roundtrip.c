@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "stegify_core.h"
+#include "stegify/core.h"
 
 static int g_failures;
 

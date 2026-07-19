@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#include "stegify_core.h"
+#include "stegify/core.h"
 
 static int
 embed_example(void)
