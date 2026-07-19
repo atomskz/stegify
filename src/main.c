@@ -7,6 +7,8 @@
 
 #include "stegify.h"
 
+#define STEGIFY_VERSION "0.1.0"
+
 typedef struct {
   const char *message;
   const char *data_file_path;
@@ -25,6 +27,37 @@ print_usage(void)
     "  stegify embed <image_path> (-m <data_as_string> | -f <data_file_path>) -o <output_image_path> [-p] [-n]\n"
     "  stegify extract <image_path> [-o <output_file_path>] [-p] [-s <size>]\n"
     "  stegify size <image_path>\n");
+}
+
+static void
+print_help(void)
+{
+  printf(
+    "stegify - hide and recover data in images using LSB steganography.\n"
+    "\n"
+    "Usage:\n"
+    "  stegify embed <image_path> (-m <data_as_string> | -f <data_file_path>) -o <output_image_path> [-p] [-n]\n"
+    "  stegify extract <image_path> [-o <output_file_path>] [-p] [-s <size>]\n"
+    "  stegify size <image_path>\n"
+    "  stegify --help | --version\n"
+    "\n"
+    "Commands:\n"
+    "  embed     Embed a string (-m) or a file (-f) into <image_path> and write\n"
+    "            the result to -o.\n"
+    "  extract   Recover an embedded payload to -o, or print it with -p.\n"
+    "  size      Print the maximum payload capacity of <image_path>.\n"
+    "\n"
+    "Options:\n"
+    "  -m <text>   Embed the given string.\n"
+    "  -f <file>   Embed the contents of the given file.\n"
+    "  -o <file>   Output path (image for embed, data for extract).\n"
+    "  -n          Embed without a size header; extract then requires -s.\n"
+    "  -s <size>   Extract exactly <size> bytes instead of reading the header.\n"
+    "  -p          Print the payload as a hex+ASCII table.\n"
+    "  -h, --help  Show this help and exit.\n"
+    "  --version   Show the version and exit.\n"
+    "\n"
+    "Supported image formats: PNG, BMP.\n");
 }
 
 static int
@@ -434,6 +467,17 @@ main(int argc, char **argv)
   const char *command;
   const char *image_path;
   cli_options_t options;
+
+  if (argc >= 2) {
+    if (strcmp(argv[1], "-h") == 0 || strcmp(argv[1], "--help") == 0) {
+      print_help();
+      return 0;
+    }
+    if (strcmp(argv[1], "--version") == 0) {
+      printf("stegify %s\n", STEGIFY_VERSION);
+      return 0;
+    }
+  }
 
   if (argc < 3) {
     print_usage();

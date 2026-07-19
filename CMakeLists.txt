@@ -82,3 +82,6 @@ add_test(
     -DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/cover.png
     -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}
     -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_roundtrip.cmake)
+
+add_test(NAME cli_help COMMAND stegify --help)
+add_test(NAME cli_version COMMAND stegify --version)
