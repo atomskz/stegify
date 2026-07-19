@@ -46,3 +46,30 @@ add_executable(stegify src/main.c)
 target_link_libraries(stegify PRIVATE stegify_core)
 target_compile_options(stegify PRIVATE ${STEGIFY_WARNING_FLAGS})
 target_compile_definitions(stegify PRIVATE ${STEGIFY_MSVC_DEFS})
+
+enable_testing()
+
+add_executable(test_roundtrip tests/test_roundtrip.c)
+target_link_libraries(test_roundtrip PRIVATE stegify_core)
+target_compile_options(test_roundtrip PRIVATE ${STEGIFY_WARNING_FLAGS})
+target_compile_definitions(test_roundtrip PRIVATE ${STEGIFY_MSVC_DEFS})
+
+foreach(case
+    roundtrip_header
+    roundtrip_noheader
+    capacity_boundary
+    zero_payload
+    tiny_image_embed
+    invalid_input
+    png_file
+    bmp_file)
+  add_test(NAME ${case} COMMAND test_roundtrip ${case})
+endforeach()
+
+add_test(
+  NAME cli_roundtrip
+  COMMAND ${CMAKE_COMMAND}
+    -DSTEGIFY_EXE=$<TARGET_FILE:stegify>
+    -DFIXTURE=${CMAKE_CURRENT_SOURCE_DIR}/tests/fixtures/cover.png
+    -DWORKDIR=${CMAKE_CURRENT_BINARY_DIR}
+    -P ${CMAKE_CURRENT_SOURCE_DIR}/tests/cli_roundtrip.cmake)
