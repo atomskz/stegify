@@ -194,23 +194,31 @@ parse_embed_options(int argc, char **argv, cli_options_t *options)
   int i;
 
   for (i = 3; i < argc; i++) {
-    if (strcmp(argv[i], "-m") == 0) {
-      if (i + 1 >= argc || options->data_file_path != NULL || options->message != NULL)
+    if (strcmp(argv[i], "-m") == 0 || strcmp(argv[i], "-f") == 0) {
+      if (options->message != NULL || options->data_file_path != NULL) {
+        fprintf(stderr, "stegify: -m and -f are mutually exclusive and may be given once\n");
         return 0;
-      options->message = argv[++i];
-      continue;
-    }
-
-    if (strcmp(argv[i], "-f") == 0) {
-      if (i + 1 >= argc || options->message != NULL || options->data_file_path != NULL)
+      }
+      if (i + 1 >= argc) {
+        fprintf(stderr, "stegify: option '%s' requires an argument\n", argv[i]);
         return 0;
-      options->data_file_path = argv[++i];
+      }
+      if (strcmp(argv[i], "-m") == 0)
+        options->message = argv[++i];
+      else
+        options->data_file_path = argv[++i];
       continue;
     }
 
     if (strcmp(argv[i], "-o") == 0) {
-      if (i + 1 >= argc || options->output_file_path != NULL)
+      if (options->output_file_path != NULL) {
+        fprintf(stderr, "stegify: option '-o' may be given once\n");
         return 0;
+      }
+      if (i + 1 >= argc) {
+        fprintf(stderr, "stegify: option '-o' requires an argument\n");
+        return 0;
+      }
       options->output_file_path = argv[++i];
       continue;
     }
@@ -225,15 +233,19 @@ parse_embed_options(int argc, char **argv, cli_options_t *options)
       continue;
     }
 
+    fprintf(stderr, "stegify: unknown option '%s'\n", argv[i]);
     return 0;
   }
 
-  if ((options->message == NULL && options->data_file_path == NULL) ||
-      (options->message != NULL && options->data_file_path != NULL))
+  if (options->message == NULL && options->data_file_path == NULL) {
+    fprintf(stderr, "stegify: embed requires -m <string> or -f <file>\n");
     return 0;
+  }
 
-  if (options->output_file_path == NULL)
+  if (options->output_file_path == NULL) {
+    fprintf(stderr, "stegify: embed requires -o <output_image_path>\n");
     return 0;
+  }
 
   return 1;
 }
@@ -245,8 +257,14 @@ parse_extract_options(int argc, char **argv, cli_options_t *options)
 
   for (i = 3; i < argc; i++) {
     if (strcmp(argv[i], "-o") == 0) {
-      if (i + 1 >= argc || options->output_file_path != NULL)
+      if (options->output_file_path != NULL) {
+        fprintf(stderr, "stegify: option '-o' may be given once\n");
         return 0;
+      }
+      if (i + 1 >= argc) {
+        fprintf(stderr, "stegify: option '-o' requires an argument\n");
+        return 0;
+      }
       options->output_file_path = argv[++i];
       continue;
     }
@@ -257,14 +275,23 @@ parse_extract_options(int argc, char **argv, cli_options_t *options)
     }
 
     if (strcmp(argv[i], "-s") == 0) {
-      if (i + 1 >= argc || options->has_extract_size)
+      if (options->has_extract_size) {
+        fprintf(stderr, "stegify: option '-s' may be given once\n");
         return 0;
-      if (!parse_u32(argv[++i], &options->extract_size) || options->extract_size == 0)
+      }
+      if (i + 1 >= argc) {
+        fprintf(stderr, "stegify: option '-s' requires an argument\n");
         return 0;
+      }
+      if (!parse_u32(argv[++i], &options->extract_size) || options->extract_size == 0) {
+        fprintf(stderr, "stegify: invalid size '%s' for -s\n", argv[i]);
+        return 0;
+      }
       options->has_extract_size = 1;
       continue;
     }
 
+    fprintf(stderr, "stegify: unknown option '%s'\n", argv[i]);
     return 0;
   }
 
@@ -489,7 +516,7 @@ main(int argc, char **argv)
   memset(&options, 0, sizeof(options));
 
   if (strcmp(command, "embed") == 0) {
-    if (argc < 7 || !parse_embed_options(argc, argv, &options)) {
+    if (!parse_embed_options(argc, argv, &options)) {
       print_usage();
       return 1;
     }
@@ -512,6 +539,7 @@ main(int argc, char **argv)
     return handle_size(image_path);
   }
 
+  fprintf(stderr, "stegify: unknown command '%s'\n", command);
   print_usage();
   return 1;
 }
