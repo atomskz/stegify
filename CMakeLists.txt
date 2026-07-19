@@ -8,8 +8,6 @@ if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Debug CACHE STRING "" FORCE)
 endif()
 
-add_executable(stegify src/main.c src/stegify.c)
-
 include(FetchContent)
 
 FetchContent_Declare(
@@ -20,6 +18,9 @@ FetchContent_Declare(
 
 FetchContent_MakeAvailable(stb)
 
-target_sources(stegify PRIVATE src/stbi_impl.c)
-target_include_directories(stegify PRIVATE ${stb_SOURCE_DIR})
-target_link_libraries(stegify PRIVATE m)
+add_library(stegify_core STATIC src/stegify.c src/stbi_impl.c)
+target_include_directories(stegify_core PUBLIC src)
+target_include_directories(stegify_core SYSTEM PUBLIC ${stb_SOURCE_DIR})
+
+add_executable(stegify src/main.c)
+target_link_libraries(stegify PRIVATE stegify_core m)
