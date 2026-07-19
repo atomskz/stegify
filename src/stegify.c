@@ -130,7 +130,7 @@ stegify_get_max_capacity(const stegify_image_t *image)
   return (total_bytes / 8) - 4;
 }
 
-static uint8_t
+static void
 embed_bit(uint8_t *target, uint8_t bit)
 {
   *target = (*target & 0xFE) | (bit & 0x01);
