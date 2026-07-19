@@ -146,25 +146,6 @@ parse_u32(const char *value, uint32_t *result)
   return 1;
 }
 
-static size_t
-get_effective_capacity(const stegify_image_t *image, int with_size_header)
-{
-  size_t total_bytes;
-
-  if (image == NULL || image->data == NULL)
-    return 0;
-
-  total_bytes = (size_t)image->width * image->height * image->channels;
-
-  if (with_size_header) {
-    if (total_bytes / 8 < sizeof(uint32_t))
-      return 0;
-    return (total_bytes / 8) - sizeof(uint32_t);
-  }
-
-  return total_bytes / 8;
-}
-
 static int
 parse_embed_options(int argc, char **argv, cli_options_t *options)
 {
@@ -308,7 +289,8 @@ handle_embed(const char *image_path, const cli_options_t *options)
     return 1;
   }
 
-  max_capacity = get_effective_capacity(&image, !options->no_size_header);
+  max_capacity = stegify_get_max_capacity(&image,
+    options->no_size_header ? 0 : STEGIFY_ATTR_WITH_SIZE);
   fprintf(stderr,
     "Embed completed: %zu bytes embedded into '%s' and saved to '%s' (capacity remaining: %zu bytes, size header: %s).\n",
     payload_size, image_path, options->output_file_path, max_capacity - payload_size,
@@ -348,7 +330,8 @@ handle_extract(const char *image_path, const cli_options_t *options)
     return 1;
   }
 
-  max_capacity = get_effective_capacity(&image, !options->has_extract_size);
+  max_capacity = stegify_get_max_capacity(&image,
+    options->has_extract_size ? 0 : STEGIFY_ATTR_WITH_SIZE);
   if (max_capacity == 0 || max_capacity > UINT32_MAX) {
     fprintf(stderr, "Invalid image capacity.\n");
     stegify_image_free(&image);
@@ -424,7 +407,7 @@ handle_size(const char *image_path)
     return 1;
   }
 
-  max_capacity = stegify_get_max_capacity(&image);
+  max_capacity = stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE);
   max_capacity_mb = (double)max_capacity / (1024.0 * 1024.0);
   printf("%zu bytes (%.3f MB)\n", max_capacity, max_capacity_mb);
 

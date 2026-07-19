@@ -112,7 +112,7 @@ test_capacity_boundary(void)
   stegify_status_t s;
 
   img = make_image(64, 64, 3);
-  cap = stegify_get_max_capacity(&img);
+  cap = stegify_get_max_capacity(&img, STEGIFY_ATTR_WITH_SIZE);
   payload = (uint8_t *)malloc(cap + 1);
   for (i = 0; i < cap + 1; i++)
     payload[i] = (uint8_t)i;
@@ -124,6 +124,21 @@ test_capacity_boundary(void)
   CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY, "embed one byte over capacity is rejected");
 
   free(payload);
+  free_image(&img);
+}
+
+static void
+test_capacity_underflow(void)
+{
+  stegify_image_t img;
+
+  /* 1x1x3 = 3 bytes: below the 4-byte header. Capacity must clamp to 0
+   * rather than wrap around (regression for the size_t underflow). */
+  img = make_image(1, 1, 3);
+  CHECK(stegify_get_max_capacity(&img, STEGIFY_ATTR_WITH_SIZE) == 0,
+    "tiny image header-mode capacity is 0 (no underflow)");
+  CHECK(stegify_get_max_capacity(&img, 0) == 0,
+    "tiny image no-header capacity is 0");
   free_image(&img);
 }
 
@@ -259,6 +274,7 @@ static const struct test_case TESTS[] = {
   { "roundtrip_header", test_roundtrip_header },
   { "roundtrip_noheader", test_roundtrip_noheader },
   { "capacity_boundary", test_capacity_boundary },
+  { "capacity_underflow", test_capacity_underflow },
   { "zero_payload", test_zero_payload },
   { "tiny_image_embed", test_tiny_image_embed },
   { "tiny_image_extract", test_tiny_image_extract },

@@ -110,16 +110,24 @@ stegify_image_save(
 }
 
 size_t
-stegify_get_max_capacity(const stegify_image_t *image)
+stegify_get_max_capacity(const stegify_image_t *image, int attributes)
 {
   size_t total_bytes;
+  size_t bits_capacity;
 
   if (image == NULL || image->data == NULL)
     return 0;
 
   total_bytes = (size_t)image->width * image->height * image->channels;
+  bits_capacity = total_bytes / BITS_IN_BYTE;
 
-  return (total_bytes / 8) - 4;
+  if (attributes & STEGIFY_ATTR_WITH_SIZE) {
+    if (bits_capacity < sizeof(uint32_t))
+      return 0;
+    return bits_capacity - sizeof(uint32_t);
+  }
+
+  return bits_capacity;
 }
 
 static void
@@ -178,8 +186,6 @@ stegify_embed(
     int attributes)
 {
   size_t max_capacity;
-  size_t total_bytes;
-  size_t required_bits;
   stegify_position_iter_t iter;
 
   if (image == NULL || image->data == NULL || data == NULL)
@@ -188,24 +194,9 @@ stegify_embed(
   if (data_size == 0)
     return STEGIFY_ERR_INVALID_INPUT;
 
-  total_bytes = (size_t)image->width * image->height * image->channels;
-  max_capacity = total_bytes / BITS_IN_BYTE;
-
-  if (attributes & STEGIFY_ATTR_WITH_SIZE) {
-    if (max_capacity < sizeof(data_size))
-      return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
-    max_capacity -= sizeof(data_size);
-  }
+  max_capacity = stegify_get_max_capacity(image, attributes);
 
   if (data_size > max_capacity)
-    return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
-
-  required_bits = data_size * BITS_IN_BYTE;
-
-  if (attributes & STEGIFY_ATTR_WITH_SIZE)
-    required_bits += sizeof(data_size) * BITS_IN_BYTE;
-
-  if (required_bits > total_bytes)
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
 
   stegify_iter_init(&iter);

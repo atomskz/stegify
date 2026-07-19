@@ -47,7 +47,7 @@ stegify_image_save(
     const stegify_image_t *image);
 
 size_t
-stegify_get_max_capacity(const stegify_image_t *image);
+stegify_get_max_capacity(const stegify_image_t *image, int attributes);
 
 stegify_status_t
 stegify_embed(
