@@ -63,6 +63,7 @@ foreach(case
     roundtrip_noheader
     capacity_boundary
     capacity_underflow
+    no_payload_detected
     zero_payload
     tiny_image_embed
     tiny_image_extract

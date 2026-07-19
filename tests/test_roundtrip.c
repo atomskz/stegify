@@ -128,6 +128,23 @@ test_capacity_boundary(void)
 }
 
 static void
+test_no_payload_detected(void)
+{
+  stegify_image_t img;
+  uint8_t out[128];
+  uint32_t outsize;
+  stegify_status_t s;
+
+  /* An image with nothing embedded must be reported as carrying no payload
+   * (magic mismatch) rather than yielding random bytes as "data". */
+  img = make_image(64, 64, 3);
+  outsize = sizeof(out);
+  s = stegify_extract(&img, out, &outsize, STEGIFY_ATTR_WITH_SIZE);
+  CHECK(s == STEGIFY_ERR_CORRUPTED_DATA, "extract without a payload is detected");
+  free_image(&img);
+}
+
+static void
 test_capacity_underflow(void)
 {
   stegify_image_t img;
@@ -310,6 +327,7 @@ static const struct test_case TESTS[] = {
   { "roundtrip_noheader", test_roundtrip_noheader },
   { "capacity_boundary", test_capacity_boundary },
   { "capacity_underflow", test_capacity_underflow },
+  { "no_payload_detected", test_no_payload_detected },
   { "zero_payload", test_zero_payload },
   { "tiny_image_embed", test_tiny_image_embed },
   { "tiny_image_extract", test_tiny_image_extract },

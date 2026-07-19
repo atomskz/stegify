@@ -356,7 +356,11 @@ handle_extract(const char *image_path, const cli_options_t *options)
 
   status = stegify_extract(&image, buffer, &data_size, attributes);
   if (status != STEGIFY_OK) {
-    fprintf(stderr, "Failed to extract data: %s\n", stegify_error_string(status));
+    if (status == STEGIFY_ERR_CORRUPTED_DATA)
+      fprintf(stderr,
+        "No stegify payload detected. If it was embedded with -n, re-run extract with -s <size>.\n");
+    else
+      fprintf(stderr, "Failed to extract data: %s\n", stegify_error_string(status));
     free(buffer);
     stegify_image_free(&image);
     return 1;
