@@ -262,6 +262,8 @@ Status codes in `stegify_status_t`:
   use PNG or BMP and do not modify the container.
 - The library provides no encryption or authentication — it only hides data.
 - Extraction works only if the container has not been modified after embedding.
+- The output path is trusted and overwritten without confirmation; make sure it
+  does not point to a file you want to keep.
 
 ## End-to-end example
 
