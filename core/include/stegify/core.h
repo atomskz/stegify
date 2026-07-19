@@ -25,13 +25,6 @@ typedef enum {
   STEGIFY_FORMAT_BMP
 } stegify_image_format_t;
 
-/*
- * Flags for the `attributes` bitmask taken by stegify_embed and
- * stegify_extract (passed as an int). STEGIFY_ATTR_WITH_SIZE writes/reads the
- * payload header; pass 0 for a raw payload with no header.
- */
-typedef enum { STEGIFY_ATTR_WITH_SIZE = 1 } stegify_attribute_t;
-
 typedef struct {
   uint8_t *data;
   uint32_t width;
@@ -63,35 +56,31 @@ stegify_status_t
 stegify_image_save(const char *filepath, const stegify_image_t *image);
 
 /*
- * Maximum payload size, in bytes, that fits in image for the given attributes.
- * With STEGIFY_ATTR_WITH_SIZE the fixed header is reserved; with 0 the whole
- * LSB space is available. Returns 0 for a NULL or too-small image.
+ * Maximum payload size, in bytes, that fits in image (the fixed header is
+ * always reserved). Returns 0 for a NULL or too-small image.
  */
 size_t
-stegify_get_max_capacity(const stegify_image_t *image, int attributes);
+stegify_get_max_capacity(const stegify_image_t *image);
 
 /*
- * Embed data_size bytes of data into image's pixel LSBs, in place. With
- * STEGIFY_ATTR_WITH_SIZE a header (magic + version + length) is written before
- * the payload so extraction can recover the length and detect a missing
- * payload; with 0 only the raw bytes are written. Returns STEGIFY_OK,
+ * Embed data_size bytes of data into image's pixel LSBs, in place. A header
+ * (magic + version + length) is written before the payload so extraction can
+ * recover the length and detect a missing payload. Returns STEGIFY_OK,
  * INVALID_INPUT (NULL or empty), or INSUFFICIENT_CAPACITY.
  */
 stegify_status_t
-stegify_embed(stegify_image_t *image, const uint8_t *data, uint32_t data_size,
-  int attributes);
+stegify_embed(stegify_image_t *image, const uint8_t *data, uint32_t data_size);
 
 /*
  * Extract a payload from image into data. *data_size is in/out: on entry it is
  * the capacity of the data buffer, on success it is the number of bytes
- * written. Pass the same attributes used for embedding; with
- * STEGIFY_ATTR_WITH_SIZE the header is read and validated, with 0 exactly
- * *data_size bytes are read. Returns STEGIFY_OK, INVALID_INPUT,
- * INSUFFICIENT_CAPACITY, or CORRUPTED_DATA (no valid header / no payload).
+ * written. The header is read and validated to recover the payload length.
+ * Returns STEGIFY_OK, INVALID_INPUT, INSUFFICIENT_CAPACITY, or CORRUPTED_DATA
+ * (no valid header / no payload).
  */
 stegify_status_t
-stegify_extract(const stegify_image_t *image, uint8_t *data,
-  uint32_t *data_size, int attributes);
+stegify_extract(
+  const stegify_image_t *image, uint8_t *data, uint32_t *data_size);
 
 /* Return a static, human-readable description of a status code. */
 const char *

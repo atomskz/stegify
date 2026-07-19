@@ -22,8 +22,7 @@ Initial tagged release.
 
 ### Changed
 - The output image format is chosen from the output path rather than the input.
-- Capacity is computed by a single function that never underflows; `size` reports
-  the capacity for both the default and `-n` modes.
+- Capacity is computed by a single function that never underflows.
 - The README was rewritten in English.
 
 ### Removed

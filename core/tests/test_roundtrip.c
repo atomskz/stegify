@@ -67,41 +67,14 @@ test_roundtrip_header(void)
   plen = (uint32_t)strlen(payload);
   outsize = sizeof(out);
 
-  s =
-    stegify_embed(&img, (const uint8_t *)payload, plen, STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_embed(&img, (const uint8_t *)payload, plen);
   CHECK(s == STEGIFY_OK, "header embed returns OK");
 
-  s = stegify_extract(&img, out, &outsize, STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_extract(&img, out, &outsize);
   CHECK(s == STEGIFY_OK, "header extract returns OK");
   CHECK(outsize == plen, "header extract reports the embedded size");
   CHECK(
     memcmp(out, payload, plen) == 0, "header payload round-trips byte-exact");
-
-  free_image(&img);
-}
-
-static void
-test_roundtrip_noheader(void)
-{
-  stegify_image_t img;
-  const char *payload = "no-header payload";
-  uint32_t plen;
-  uint8_t out[64];
-  uint32_t outsize;
-  stegify_status_t s;
-
-  img = make_image(64, 64, 3);
-  plen = (uint32_t)strlen(payload);
-  outsize = plen; /* caller must supply the exact length in no-header mode */
-
-  s = stegify_embed(&img, (const uint8_t *)payload, plen, 0);
-  CHECK(s == STEGIFY_OK, "no-header embed returns OK");
-
-  s = stegify_extract(&img, out, &outsize, 0);
-  CHECK(s == STEGIFY_OK, "no-header extract returns OK");
-  CHECK(outsize == plen, "no-header extract preserves the requested size");
-  CHECK(memcmp(out, payload, plen) == 0,
-    "no-header payload round-trips byte-exact");
 
   free_image(&img);
 }
@@ -116,15 +89,15 @@ test_capacity_boundary(void)
   stegify_status_t s;
 
   img = make_image(64, 64, 3);
-  cap = stegify_get_max_capacity(&img, STEGIFY_ATTR_WITH_SIZE);
+  cap = stegify_get_max_capacity(&img);
   payload = (uint8_t *)malloc(cap + 1);
   for (i = 0; i < cap + 1; i++)
     payload[i] = (uint8_t)i;
 
-  s = stegify_embed(&img, payload, (uint32_t)cap, STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_embed(&img, payload, (uint32_t)cap);
   CHECK(s == STEGIFY_OK, "embed at exact capacity succeeds");
 
-  s = stegify_embed(&img, payload, (uint32_t)(cap + 1), STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_embed(&img, payload, (uint32_t)(cap + 1));
   CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY,
     "embed one byte over capacity is rejected");
 
@@ -144,7 +117,7 @@ test_no_payload_detected(void)
    * (magic mismatch) rather than yielding random bytes as "data". */
   img = make_image(64, 64, 3);
   outsize = sizeof(out);
-  s = stegify_extract(&img, out, &outsize, STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_extract(&img, out, &outsize);
   CHECK(
     s == STEGIFY_ERR_CORRUPTED_DATA, "extract without a payload is detected");
   free_image(&img);
@@ -155,13 +128,11 @@ test_capacity_underflow(void)
 {
   stegify_image_t img;
 
-  /* 1x1x3 = 3 bytes: below the 4-byte header. Capacity must clamp to 0
-   * rather than wrap around (regression for the size_t underflow). */
+  /* 1x1x3 = 3 bytes: below the header size. Capacity must clamp to 0 rather
+   * than wrap around (regression for the size_t underflow). */
   img = make_image(1, 1, 3);
-  CHECK(stegify_get_max_capacity(&img, STEGIFY_ATTR_WITH_SIZE) == 0,
-    "tiny image header-mode capacity is 0 (no underflow)");
-  CHECK(stegify_get_max_capacity(&img, 0) == 0,
-    "tiny image no-header capacity is 0");
+  CHECK(stegify_get_max_capacity(&img) == 0,
+    "tiny image capacity is 0 (no underflow)");
   free_image(&img);
 }
 
@@ -174,7 +145,7 @@ test_zero_payload(void)
 
   img = make_image(16, 16, 3);
   byte = 0;
-  s = stegify_embed(&img, &byte, 0, STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_embed(&img, &byte, 0);
   CHECK(s == STEGIFY_ERR_INVALID_INPUT, "zero-length embed is rejected");
 
   free_image(&img);
@@ -189,7 +160,7 @@ test_tiny_image_embed(void)
 
   /* 2x2x1 = 4 bytes -> total/8 = 0, cannot even fit the 4-byte size header. */
   img = make_image(2, 2, 1);
-  s = stegify_embed(&img, (const uint8_t *)payload, 1, STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_embed(&img, (const uint8_t *)payload, 1);
   CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY,
     "tiny image header-mode embed is rejected");
 
@@ -209,7 +180,7 @@ test_tiny_image_extract(void)
    * out-of-bounds header read). */
   img = make_image(2, 2, 1);
   outsize = sizeof(out);
-  s = stegify_extract(&img, out, &outsize, STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_extract(&img, out, &outsize);
   CHECK(s == STEGIFY_ERR_INSUFFICIENT_CAPACITY,
     "tiny image header-mode extract is rejected");
 
@@ -279,8 +250,7 @@ run_file_roundtrip(
   img.format = fmt;
   plen = (uint32_t)strlen(payload);
 
-  s =
-    stegify_embed(&img, (const uint8_t *)payload, plen, STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_embed(&img, (const uint8_t *)payload, plen);
   snprintf(msg, sizeof(msg), "%s: embed returns OK", label);
   CHECK(s == STEGIFY_OK, msg);
 
@@ -295,7 +265,7 @@ run_file_roundtrip(
   CHECK(s == STEGIFY_OK, msg);
 
   outsize = sizeof(out);
-  s = stegify_extract(&loaded, out, &outsize, STEGIFY_ATTR_WITH_SIZE);
+  s = stegify_extract(&loaded, out, &outsize);
   snprintf(msg, sizeof(msg), "%s: extract returns OK", label);
   CHECK(s == STEGIFY_OK, msg);
   snprintf(msg, sizeof(msg), "%s: extracted size matches", label);
@@ -365,7 +335,6 @@ struct test_case {
 
 static const struct test_case TESTS[] = { { "roundtrip_header",
                                             test_roundtrip_header },
-  { "roundtrip_noheader", test_roundtrip_noheader },
   { "capacity_boundary", test_capacity_boundary },
   { "capacity_underflow", test_capacity_underflow },
   { "no_payload_detected", test_no_payload_detected },

@@ -45,7 +45,6 @@ target_link_libraries(test_roundtrip PRIVATE stegify_core)
 stegify_configure_target(test_roundtrip)
 foreach(case
     roundtrip_header
-    roundtrip_noheader
     capacity_boundary
     capacity_underflow
     no_payload_detected
@@ -66,7 +65,6 @@ stegify_configure_target(test_ops)
 foreach(case
     file_io
     ops_roundtrip
-    ops_roundtrip_no_header
     ops_capacity
     ops_no_payload)
   add_test(NAME ${case} COMMAND test_ops ${case})

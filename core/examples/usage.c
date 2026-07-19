@@ -21,13 +21,12 @@ embed_example(void)
   if (stegify_image_load("cover.png", &image) != STEGIFY_OK)
     return 1;
 
-  if (payload_size > stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE)) {
+  if (payload_size > stegify_get_max_capacity(&image)) {
     stegify_image_free(&image);
     return 1;
   }
 
-  status = stegify_embed(
-    &image, (const uint8_t *)payload, payload_size, STEGIFY_ATTR_WITH_SIZE);
+  status = stegify_embed(&image, (const uint8_t *)payload, payload_size);
   if (status == STEGIFY_OK)
     status = stegify_image_save("stego.png", &image);
 
@@ -47,7 +46,7 @@ extract_example(void)
   if (stegify_image_load("stego.png", &image) != STEGIFY_OK)
     return 1;
 
-  status = stegify_extract(&image, buffer, &size, STEGIFY_ATTR_WITH_SIZE);
+  status = stegify_extract(&image, buffer, &size);
   stegify_image_free(&image);
 
   if (status != STEGIFY_OK) {

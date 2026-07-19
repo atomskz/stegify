@@ -17,7 +17,7 @@ main()
   image.height = 0;
   image.channels = 0;
   image.format = STEGIFY_FORMAT_PNG;
-  capacity = stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE);
+  capacity = stegify_get_max_capacity(&image);
 
   return (msg != 0 && capacity == 0) ? 0 : 1;
 }

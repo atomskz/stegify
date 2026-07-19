@@ -71,12 +71,10 @@ stegify_write_file(const char *path, const uint8_t *data, size_t size)
 
 stegify_status_t
 stegify_ops_embed(const char *image_path, const uint8_t *payload,
-  size_t payload_size, const char *output_path, int with_size_header,
-  size_t *capacity_remaining)
+  size_t payload_size, const char *output_path, size_t *capacity_remaining)
 {
   stegify_image_t image;
   stegify_status_t status;
-  int attributes;
 
   if (image_path == NULL || payload == NULL || output_path == NULL)
     return STEGIFY_ERR_INVALID_INPUT;
@@ -90,9 +88,7 @@ stegify_ops_embed(const char *image_path, const uint8_t *payload,
   if (status != STEGIFY_OK)
     return status;
 
-  attributes = with_size_header ? STEGIFY_ATTR_WITH_SIZE : 0;
-
-  status = stegify_embed(&image, payload, (uint32_t)payload_size, attributes);
+  status = stegify_embed(&image, payload, (uint32_t)payload_size);
   if (status != STEGIFY_OK) {
     stegify_image_free(&image);
     return status;
@@ -105,24 +101,21 @@ stegify_ops_embed(const char *image_path, const uint8_t *payload,
   }
 
   if (capacity_remaining != NULL)
-    *capacity_remaining =
-      stegify_get_max_capacity(&image, attributes) - payload_size;
+    *capacity_remaining = stegify_get_max_capacity(&image) - payload_size;
 
   stegify_image_free(&image);
   return STEGIFY_OK;
 }
 
 stegify_status_t
-stegify_ops_extract(const char *image_path, uint32_t explicit_size,
-  uint8_t **out_data, uint32_t *out_size)
+stegify_ops_extract(
+  const char *image_path, uint8_t **out_data, uint32_t *out_size)
 {
   stegify_image_t image;
   stegify_status_t status;
   size_t capacity;
   uint8_t *buffer;
   uint32_t data_size;
-  int attributes;
-  int has_size;
 
   if (image_path == NULL || out_data == NULL || out_size == NULL)
     return STEGIFY_ERR_INVALID_INPUT;
@@ -133,21 +126,13 @@ stegify_ops_extract(const char *image_path, uint32_t explicit_size,
   if (status != STEGIFY_OK)
     return status;
 
-  has_size = explicit_size > 0;
-  attributes = has_size ? 0 : STEGIFY_ATTR_WITH_SIZE;
-
-  capacity = stegify_get_max_capacity(&image, attributes);
+  capacity = stegify_get_max_capacity(&image);
   if (capacity == 0 || capacity > UINT32_MAX) {
     stegify_image_free(&image);
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
   }
 
-  if (has_size && explicit_size > capacity) {
-    stegify_image_free(&image);
-    return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
-  }
-
-  data_size = has_size ? explicit_size : (uint32_t)capacity;
+  data_size = (uint32_t)capacity;
 
   buffer = (uint8_t *)malloc(data_size);
   if (buffer == NULL) {
@@ -155,7 +140,7 @@ stegify_ops_extract(const char *image_path, uint32_t explicit_size,
     return STEGIFY_ERR_MEMORY_ALLOC;
   }
 
-  status = stegify_extract(&image, buffer, &data_size, attributes);
+  status = stegify_extract(&image, buffer, &data_size);
   if (status != STEGIFY_OK) {
     free(buffer);
     stegify_image_free(&image);
@@ -170,13 +155,12 @@ stegify_ops_extract(const char *image_path, uint32_t explicit_size,
 }
 
 stegify_status_t
-stegify_ops_capacity(const char *image_path, size_t *capacity_with_header,
-  size_t *capacity_no_header)
+stegify_ops_capacity(const char *image_path, size_t *capacity)
 {
   stegify_image_t image;
   stegify_status_t status;
 
-  if (image_path == NULL)
+  if (image_path == NULL || capacity == NULL)
     return STEGIFY_ERR_INVALID_INPUT;
 
   memset(&image, 0, sizeof(image));
@@ -185,11 +169,7 @@ stegify_ops_capacity(const char *image_path, size_t *capacity_with_header,
   if (status != STEGIFY_OK)
     return status;
 
-  if (capacity_with_header != NULL)
-    *capacity_with_header =
-      stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE);
-  if (capacity_no_header != NULL)
-    *capacity_no_header = stegify_get_max_capacity(&image, 0);
+  *capacity = stegify_get_max_capacity(&image);
 
   stegify_image_free(&image);
   return STEGIFY_OK;

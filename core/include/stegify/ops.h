@@ -36,34 +36,30 @@ stegify_write_file(const char *path, const uint8_t *data, size_t size);
 
 /*
  * Load image_path, embed the payload buffer, and save the result to
- * output_path. with_size_header selects the default (non-zero) or headerless
- * (-n, zero) mode. If capacity_remaining is non-NULL it receives the leftover
+ * output_path. If capacity_remaining is non-NULL it receives the leftover
  * payload capacity of the container. Returns STEGIFY_OK or a status from the
  * underlying load/embed/save.
  */
 stegify_status_t
 stegify_ops_embed(const char *image_path, const uint8_t *payload,
-  size_t payload_size, const char *output_path, int with_size_header,
-  size_t *capacity_remaining);
+  size_t payload_size, const char *output_path, size_t *capacity_remaining);
 
 /*
  * Load image_path and extract a payload into a newly allocated buffer. On
  * success *out_data is owned by the caller (free with free()) and *out_size is
- * its length. explicit_size == 0 reads the stored size header; a non-zero
- * value reads exactly that many bytes (the headerless / -n case). Returns
+ * its length. The stored size header gives the payload length. Returns
  * STEGIFY_OK, CORRUPTED_DATA (no valid payload), or another core status.
  */
 stegify_status_t
-stegify_ops_extract(const char *image_path, uint32_t explicit_size,
-  uint8_t **out_data, uint32_t *out_size);
+stegify_ops_extract(
+  const char *image_path, uint8_t **out_data, uint32_t *out_size);
 
 /*
- * Load image_path and report its payload capacity for both modes. Either
- * output pointer may be NULL. Returns STEGIFY_OK or a load status.
+ * Load image_path and report its maximum payload capacity into *capacity.
+ * Returns STEGIFY_OK or a load status.
  */
 stegify_status_t
-stegify_ops_capacity(const char *image_path, size_t *capacity_with_header,
-  size_t *capacity_no_header);
+stegify_ops_capacity(const char *image_path, size_t *capacity);
 
 #ifdef __cplusplus
 }

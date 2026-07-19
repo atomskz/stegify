@@ -16,13 +16,10 @@ The core idea is to store the bits of the payload in the least significant bit o
 each byte of the pixel data.
 
 - One payload byte needs eight container bytes (one bit per container byte).
-- In the default (size-header) mode the library writes a small fixed header
-  before the payload: a `STGF` magic marker, a one-byte format version, and the
-  payload length as a `uint32_t`. On extraction the magic is validated first, so
-  an image that carries no payload is reported as such instead of returning random
-  bytes.
-- With `-n` (embed) / `-s` (extract) the header is omitted and you supply the
-  exact payload length yourself.
+- The library writes a small fixed header before the payload: a `STGF` magic
+  marker, a one-byte format version, and the payload length as a `uint32_t`. On
+  extraction the magic is validated first, so an image that carries no payload is
+  reported as such instead of returning random bytes.
 
 ## Features
 
@@ -89,8 +86,8 @@ ctest --test-dir build --output-on-failure
 ## CLI usage
 
 ```text
-stegify embed <image_path> (-m <data_as_string> | -f <data_file_path>) -o <output_image_path> [-p] [-n]
-stegify extract <image_path> [-o <output_file_path>] [-p] [-s <size>]
+stegify embed <image_path> (-m <data_as_string> | -f <data_file_path>) -o <output_image_path> [-p]
+stegify extract <image_path> [-o <output_file_path>] [-p]
 stegify size <image_path>
 stegify --help | --version
 ```
@@ -115,7 +112,6 @@ The command loads `input.png`, embeds the string, writes the result to
 Notes:
 - `-m` and `-f` are mutually exclusive;
 - `-o` is required for `embed`;
-- `-n` embeds without the size header — see the note below;
 - `-p` prints the embedded payload as a hex+ASCII table.
 
 ### 3) Extract to a file
@@ -146,18 +142,8 @@ printed as a hex table with a parallel ASCII column, for example:
 Example output:
 
 ```text
-capacity: 2039 bytes with size header, 2048 bytes with -n (0.002 MiB)
+capacity: 2039 bytes (0.002 MiB)
 ```
-
-## `-n` and `-s`
-
-`-n` (embed without a size header) and `-s <size>` (extract an explicit number of
-bytes) go together:
-
-- If you embed with `-n`, the payload length is **not** stored, so you **must**
-  extract with `-s <exact_size>`.
-- Do **not** use `-s` on an image embedded in the default mode: the header bytes
-  would be treated as payload.
 
 ## Image formats
 
@@ -173,15 +159,14 @@ destroy the LSB payload.
 
 ## Container capacity
 
-Each payload byte occupies eight container bytes. In the default mode a small
-fixed header is also stored, so the usable capacity is:
+Each payload byte occupies eight container bytes, and a small fixed header is
+also stored, so the usable capacity is:
 
 ```text
-floor(width * height * channels / 8) - <header size>   (default mode)
-floor(width * height * channels / 8)                    (with -n)
+floor(width * height * channels / 8) - <header size>
 ```
 
-Run `stegify size <image>` to see the exact capacity for both modes.
+Run `stegify size <image>` to see the exact capacity.
 
 ## Public library API
 
@@ -191,15 +176,12 @@ Key functions:
 - `stegify_image_load(...)` — load an image.
 - `stegify_image_save(...)` — save an image (encoder chosen from the output path).
 - `stegify_image_free(...)` — free the image buffer.
-- `stegify_get_max_capacity(image, attributes)` — maximum payload capacity for the
-  given mode (`STEGIFY_ATTR_WITH_SIZE` or `0`).
+- `stegify_get_max_capacity(image)` — maximum payload capacity of the image.
 - `stegify_embed(...)` — embed data.
 - `stegify_extract(...)` — extract data. `*data_size` is in/out: the caller sets it
   to the output buffer capacity and the function overwrites it with the number of
   bytes actually extracted.
 - `stegify_error_string(...)` — human-readable status text.
-
-The same `attributes` value must be used for `embed` and `extract`.
 
 ### Example
 
@@ -222,13 +204,12 @@ int embed_example(void)
   if (stegify_image_load("cover.png", &image) != STEGIFY_OK)
     return 1;
 
-  if (payload_size > stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE)) {
+  if (payload_size > stegify_get_max_capacity(&image)) {
     stegify_image_free(&image);
     return 1;
   }
 
-  status = stegify_embed(&image, (const uint8_t *)payload, payload_size,
-                         STEGIFY_ATTR_WITH_SIZE);
+  status = stegify_embed(&image, (const uint8_t *)payload, payload_size);
   if (status == STEGIFY_OK)
     status = stegify_image_save("stego.png", &image);
 
@@ -246,7 +227,7 @@ int extract_example(void)
   if (stegify_image_load("stego.png", &image) != STEGIFY_OK)
     return 1;
 
-  status = stegify_extract(&image, buffer, &size, STEGIFY_ATTR_WITH_SIZE);
+  status = stegify_extract(&image, buffer, &size);
   stegify_image_free(&image);
 
   if (status != STEGIFY_OK)
@@ -263,6 +244,7 @@ Status codes in `stegify_status_t`:
 - `STEGIFY_ERR_INVALID_IMAGE`
 - `STEGIFY_ERR_UNSUPPORTED_FORMAT`
 - `STEGIFY_ERR_INSUFFICIENT_CAPACITY`
+- `STEGIFY_ERR_MEMORY_ALLOC`
 - `STEGIFY_ERR_FILE_IO`
 - `STEGIFY_ERR_CORRUPTED_DATA`
 
@@ -313,8 +295,8 @@ If a command fails:
 - check the extension (`png`, `bmp`);
 - check that the payload fits in the container (`size`);
 - check write permissions for the output path;
-- if `extract` reports "No stegify payload detected", the image has no payload in
-  the default mode — if it was embedded with `-n`, pass `-s <size>`.
+- if `extract` reports "No stegify payload detected", the image carries no stegify
+  payload (or was modified after embedding).
 
 ## License
 

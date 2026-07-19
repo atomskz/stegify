@@ -86,11 +86,11 @@ test_ops_roundtrip(void)
 
   remaining = 0;
   s = stegify_ops_embed(
-    cover, (const uint8_t *)payload, payload_size, stego, 1, &remaining);
+    cover, (const uint8_t *)payload, payload_size, stego, &remaining);
   CHECK(s == STEGIFY_OK, "ops_embed returns OK");
   CHECK(remaining > 0, "ops_embed reports remaining capacity");
 
-  s = stegify_ops_extract(stego, 0, &out, &out_size);
+  s = stegify_ops_extract(stego, &out, &out_size);
   CHECK(s == STEGIFY_OK, "ops_extract returns OK");
   CHECK(out_size == payload_size, "extracted size matches");
   CHECK(memcmp(out, payload, payload_size) == 0,
@@ -102,49 +102,19 @@ test_ops_roundtrip(void)
 }
 
 static void
-test_ops_roundtrip_no_header(void)
-{
-  const char *cover = "stegify_ops_cover_n.png";
-  const char *stego = "stegify_ops_stego_n.png";
-  const char *payload = "headerless";
-  uint32_t payload_size = (uint32_t)strlen(payload);
-  uint8_t *out;
-  uint32_t out_size;
-  stegify_status_t s;
-
-  CHECK(make_cover(cover), "created cover image");
-
-  s = stegify_ops_embed(
-    cover, (const uint8_t *)payload, payload_size, stego, 0, NULL);
-  CHECK(s == STEGIFY_OK, "headerless ops_embed returns OK");
-
-  s = stegify_ops_extract(stego, payload_size, &out, &out_size);
-  CHECK(
-    s == STEGIFY_OK, "headerless ops_extract with explicit size returns OK");
-  CHECK(out_size == payload_size, "headerless extracted size matches");
-  CHECK(
-    memcmp(out, payload, payload_size) == 0, "headerless payload round-trips");
-  free(out);
-
-  remove(cover);
-  remove(stego);
-}
-
-static void
 test_ops_capacity(void)
 {
   const char *cover = "stegify_ops_cap.png";
-  size_t cap_h = 0;
-  size_t cap_n = 0;
+  size_t cap = 0;
   stegify_status_t s;
 
   CHECK(make_cover(cover), "created cover image");
-  s = stegify_ops_capacity(cover, &cap_h, &cap_n);
+  s = stegify_ops_capacity(cover, &cap);
   CHECK(s == STEGIFY_OK, "ops_capacity returns OK");
-  CHECK(cap_n > cap_h, "no-header capacity exceeds header capacity");
+  CHECK(cap > 0, "capacity is non-zero");
   remove(cover);
 
-  s = stegify_ops_capacity("stegify_ops_missing.png", &cap_h, &cap_n);
+  s = stegify_ops_capacity("stegify_ops_missing.png", &cap);
   CHECK(s == STEGIFY_ERR_FILE_IO, "capacity of a missing file is FILE_IO");
 }
 
@@ -157,7 +127,7 @@ test_ops_no_payload(void)
   stegify_status_t s;
 
   CHECK(make_cover(cover), "created cover image");
-  s = stegify_ops_extract(cover, 0, &out, &out_size);
+  s = stegify_ops_extract(cover, &out, &out_size);
   CHECK(s == STEGIFY_ERR_CORRUPTED_DATA,
     "extract from an image with no payload is CORRUPTED_DATA");
   remove(cover);
@@ -172,7 +142,6 @@ struct test_case {
 
 static const struct test_case TESTS[] = { { "file_io", test_file_io },
   { "ops_roundtrip", test_ops_roundtrip },
-  { "ops_roundtrip_no_header", test_ops_roundtrip_no_header },
   { "ops_capacity", test_ops_capacity },
   { "ops_no_payload", test_ops_no_payload } };
 

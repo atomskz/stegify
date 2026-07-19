@@ -14,7 +14,7 @@
 #endif
 
 /*
- * In size-header mode the payload is preceded by a fixed header:
+ * The payload is preceded by a fixed header:
  *   4-byte magic "STGF" | 1-byte format version | 4-byte payload size.
  * The magic lets extract detect that an image carries no stegify payload
  * instead of returning random bytes as if they were data. The size is stored
@@ -138,7 +138,7 @@ stegify_image_save(const char *filepath, const stegify_image_t *image)
 }
 
 size_t
-stegify_get_max_capacity(const stegify_image_t *image, int attributes)
+stegify_get_max_capacity(const stegify_image_t *image)
 {
   size_t total_bytes;
   size_t bits_capacity;
@@ -149,13 +149,10 @@ stegify_get_max_capacity(const stegify_image_t *image, int attributes)
   total_bytes = (size_t)image->width * image->height * image->channels;
   bits_capacity = total_bytes / BITS_IN_BYTE;
 
-  if (attributes & STEGIFY_ATTR_WITH_SIZE) {
-    if (bits_capacity < STEGIFY_HEADER_BYTES)
-      return 0;
-    return bits_capacity - STEGIFY_HEADER_BYTES;
-  }
+  if (bits_capacity < STEGIFY_HEADER_BYTES)
+    return 0;
 
-  return bits_capacity;
+  return bits_capacity - STEGIFY_HEADER_BYTES;
 }
 
 static void
@@ -193,8 +190,7 @@ stegify_write_buffer_to_image_lsb(
 }
 
 stegify_status_t
-stegify_embed(stegify_image_t *image, const uint8_t *data, uint32_t data_size,
-  int attributes)
+stegify_embed(stegify_image_t *image, const uint8_t *data, uint32_t data_size)
 {
   size_t max_capacity;
   size_t pos;
@@ -206,22 +202,18 @@ stegify_embed(stegify_image_t *image, const uint8_t *data, uint32_t data_size,
   if (data_size == 0)
     return STEGIFY_ERR_INVALID_INPUT;
 
-  max_capacity = stegify_get_max_capacity(image, attributes);
+  max_capacity = stegify_get_max_capacity(image);
 
   if (data_size > max_capacity)
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
 
   pos = 0;
-
-  if (attributes & STEGIFY_ATTR_WITH_SIZE) {
-    version = STEGIFY_FORMAT_VERSION;
-    stegify_write_buffer_to_image_lsb(
-      STEGIFY_MAGIC, STEGIFY_MAGIC_LEN, image->data, &pos);
-    stegify_write_buffer_to_image_lsb(&version, 1, image->data, &pos);
-    stegify_write_buffer_to_image_lsb(
-      (uint8_t *)&data_size, sizeof(data_size), image->data, &pos);
-  }
-
+  version = STEGIFY_FORMAT_VERSION;
+  stegify_write_buffer_to_image_lsb(
+    STEGIFY_MAGIC, STEGIFY_MAGIC_LEN, image->data, &pos);
+  stegify_write_buffer_to_image_lsb(&version, 1, image->data, &pos);
+  stegify_write_buffer_to_image_lsb(
+    (uint8_t *)&data_size, sizeof(data_size), image->data, &pos);
   stegify_write_buffer_to_image_lsb(data, data_size, image->data, &pos);
 
   return STEGIFY_OK;
@@ -249,8 +241,8 @@ stegify_read_buffer_from_image_lsb(
 }
 
 stegify_status_t
-stegify_extract(const stegify_image_t *image, uint8_t *data,
-  uint32_t *data_size, int attributes)
+stegify_extract(
+  const stegify_image_t *image, uint8_t *data, uint32_t *data_size)
 {
   size_t total_bytes;
   size_t required_bits;
@@ -272,30 +264,26 @@ stegify_extract(const stegify_image_t *image, uint8_t *data,
 
   /* The header occupies one LSB per image byte; refuse to read it from an
    * image too small to hold it, otherwise the read runs past the buffer. */
-  if ((attributes & STEGIFY_ATTR_WITH_SIZE) &&
-      total_bytes < STEGIFY_HEADER_BYTES * BITS_IN_BYTE)
+  if (total_bytes < STEGIFY_HEADER_BYTES * BITS_IN_BYTE)
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
 
-  if (attributes & STEGIFY_ATTR_WITH_SIZE) {
-    stegify_read_buffer_from_image_lsb(
-      magic, STEGIFY_MAGIC_LEN, image->data, &pos);
-    if (memcmp(magic, STEGIFY_MAGIC, STEGIFY_MAGIC_LEN) != 0)
-      return STEGIFY_ERR_CORRUPTED_DATA;
+  stegify_read_buffer_from_image_lsb(
+    magic, STEGIFY_MAGIC_LEN, image->data, &pos);
+  if (memcmp(magic, STEGIFY_MAGIC, STEGIFY_MAGIC_LEN) != 0)
+    return STEGIFY_ERR_CORRUPTED_DATA;
 
-    stegify_read_buffer_from_image_lsb(&version, 1, image->data, &pos);
-    if (version != STEGIFY_FORMAT_VERSION)
-      return STEGIFY_ERR_CORRUPTED_DATA;
+  stegify_read_buffer_from_image_lsb(&version, 1, image->data, &pos);
+  if (version != STEGIFY_FORMAT_VERSION)
+    return STEGIFY_ERR_CORRUPTED_DATA;
 
-    stegify_read_buffer_from_image_lsb(
-      (uint8_t *)data_size, sizeof(*data_size), image->data, &pos);
-  }
+  stegify_read_buffer_from_image_lsb(
+    (uint8_t *)data_size, sizeof(*data_size), image->data, &pos);
 
   if (*data_size > out_buffer_size)
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
 
-  required_bits = (size_t)(*data_size) * BITS_IN_BYTE;
-  if (attributes & STEGIFY_ATTR_WITH_SIZE)
-    required_bits += STEGIFY_HEADER_BYTES * BITS_IN_BYTE;
+  required_bits =
+    (size_t)(*data_size) * BITS_IN_BYTE + STEGIFY_HEADER_BYTES * BITS_IN_BYTE;
 
   if (required_bits > total_bytes)
     return STEGIFY_ERR_INSUFFICIENT_CAPACITY;
