@@ -25,6 +25,13 @@ target_include_directories(stegify_core PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/inclu
 target_link_libraries(stegify_core PUBLIC stb_image)
 stegify_configure_target(stegify_core)
 
+# When the core is built with sanitizers, every executable that links it must
+# also link the sanitizer runtime; propagate that as a usage requirement so no
+# consumer (tests, frontends) has to remember it.
+if(STEGIFY_SANITIZE_LINK)
+  target_link_options(stegify_core INTERFACE ${STEGIFY_SANITIZE_LINK})
+endif()
+
 install(TARGETS stegify_core stb_image
   RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
   ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
