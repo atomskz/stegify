@@ -63,6 +63,12 @@ target_link_libraries(stegify PRIVATE stegify_core)
 target_compile_options(stegify PRIVATE ${STEGIFY_WARNING_FLAGS})
 target_compile_definitions(stegify PRIVATE ${STEGIFY_MSVC_DEFS})
 
+# Compiled so the README library example is guaranteed to build.
+add_executable(example_usage examples/usage.c)
+target_link_libraries(example_usage PRIVATE stegify_core)
+target_compile_options(example_usage PRIVATE ${STEGIFY_WARNING_FLAGS})
+target_compile_definitions(example_usage PRIVATE ${STEGIFY_MSVC_DEFS})
+
 enable_testing()
 
 add_executable(test_roundtrip tests/test_roundtrip.c)

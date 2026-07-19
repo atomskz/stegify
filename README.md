@@ -188,6 +188,62 @@ Key functions:
 
 The same `attributes` value must be used for `embed` and `extract`.
 
+### Example
+
+A compilable version of this example lives in `examples/usage.c`.
+
+```c
+#include <stdint.h>
+#include <stdio.h>
+#include <string.h>
+
+#include "stegify.h"
+
+int embed_example(void)
+{
+  stegify_image_t image;
+  const char *payload = "hidden message";
+  uint32_t payload_size = (uint32_t)strlen(payload);
+  stegify_status_t status;
+
+  if (stegify_image_load("cover.png", &image) != STEGIFY_OK)
+    return 1;
+
+  if (payload_size > stegify_get_max_capacity(&image, STEGIFY_ATTR_WITH_SIZE)) {
+    stegify_image_free(&image);
+    return 1;
+  }
+
+  status = stegify_embed(&image, (const uint8_t *)payload, payload_size,
+                         STEGIFY_ATTR_WITH_SIZE);
+  if (status == STEGIFY_OK)
+    status = stegify_image_save("stego.png", &image);
+
+  stegify_image_free(&image);
+  return status == STEGIFY_OK ? 0 : 1;
+}
+
+int extract_example(void)
+{
+  stegify_image_t image;
+  uint8_t buffer[4096];
+  uint32_t size = sizeof(buffer); /* in: buffer capacity, out: bytes extracted */
+  stegify_status_t status;
+
+  if (stegify_image_load("stego.png", &image) != STEGIFY_OK)
+    return 1;
+
+  status = stegify_extract(&image, buffer, &size, STEGIFY_ATTR_WITH_SIZE);
+  stegify_image_free(&image);
+
+  if (status != STEGIFY_OK)
+    return 1;
+
+  fwrite(buffer, 1, size, stdout);
+  return 0;
+}
+```
+
 Status codes in `stegify_status_t`:
 - `STEGIFY_OK`
 - `STEGIFY_ERR_INVALID_INPUT`
