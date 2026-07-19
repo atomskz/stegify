@@ -57,6 +57,8 @@ print_help(void)
     "  -h, --help  Show this help and exit.\n"
     "  --version   Show the version and exit.\n"
     "\n"
+    "The image path must come first, before any options.\n"
+    "\n"
     "Supported image formats: PNG, BMP.\n");
 }
 

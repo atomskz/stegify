@@ -84,6 +84,8 @@ stegify size <image_path>
 stegify --help | --version
 ```
 
+The image path is positional and must come first, before any options.
+
 ### 1) Embed a string
 
 ```bash
