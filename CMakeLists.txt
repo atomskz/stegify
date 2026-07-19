@@ -68,6 +68,7 @@ foreach(case
     tiny_image_embed
     tiny_image_extract
     invalid_input
+    load_errors
     encoder_from_output_path
     png_file
     bmp_file)

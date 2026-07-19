@@ -1,3 +1,4 @@
+#include <stdio.h>
 #include <string.h>
 
 #include "stegify.h"
@@ -55,6 +56,7 @@ stegify_image_load(
   int channels;
   stbi_uc *pixels;
   stegify_image_format_t format;
+  FILE *probe;
 
   if (filepath == NULL || image == NULL)
     return STEGIFY_ERR_INVALID_INPUT;
@@ -63,13 +65,20 @@ stegify_image_load(
   if (format == STEGIFY_FORMAT_UNKNOWN)
     return STEGIFY_ERR_UNSUPPORTED_FORMAT;
 
+  /* stbi_load returns NULL for both a missing file and an unreadable image,
+   * so probe the file first to tell "cannot open" from "not a valid image". */
+  probe = fopen(filepath, "rb");
+  if (probe == NULL)
+    return STEGIFY_ERR_FILE_IO;
+  fclose(probe);
+
   width = 0;
   height = 0;
   channels = 0;
 
   pixels = stbi_load(filepath, &width, &height, &channels, 0);
   if (pixels == NULL)
-    return STEGIFY_ERR_FILE_IO;
+    return STEGIFY_ERR_INVALID_IMAGE;
 
   image->data = (uint8_t *)pixels;
   image->width = (uint32_t)width;
@@ -330,8 +339,6 @@ stegify_error_string(stegify_status_t status)
     return "unsupported format";
   case STEGIFY_ERR_INSUFFICIENT_CAPACITY:
     return "insufficient capacity";
-  case STEGIFY_ERR_MEMORY_ALLOC:
-    return "memory allocation failed";
   case STEGIFY_ERR_FILE_IO:
     return "file i/o error";
   case STEGIFY_ERR_CORRUPTED_DATA:

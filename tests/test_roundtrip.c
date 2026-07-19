@@ -226,6 +226,32 @@ test_invalid_input(void)
 }
 
 static void
+test_load_errors(void)
+{
+  stegify_image_t img;
+  stegify_status_t s;
+  FILE *f;
+  const char *bogus = "stegify_test_bogus.png";
+
+  memset(&img, 0, sizeof(img));
+
+  /* A supported extension but no such file: cannot open -> FILE_IO. */
+  s = stegify_image_load("stegify_missing_file.png", &img);
+  CHECK(s == STEGIFY_ERR_FILE_IO, "missing file with a valid extension is FILE_IO");
+
+  /* A readable file whose contents are not a valid image -> INVALID_IMAGE. */
+  f = fopen(bogus, "wb");
+  CHECK(f != NULL, "created a bogus image file");
+  if (f != NULL) {
+    fwrite("not a real image", 1, 16, f);
+    fclose(f);
+  }
+  s = stegify_image_load(bogus, &img);
+  CHECK(s == STEGIFY_ERR_INVALID_IMAGE, "readable non-image is INVALID_IMAGE");
+  remove(bogus);
+}
+
+static void
 run_file_roundtrip(const char *path, stegify_image_format_t fmt, const char *label)
 {
   stegify_image_t img;
@@ -332,6 +358,7 @@ static const struct test_case TESTS[] = {
   { "tiny_image_embed", test_tiny_image_embed },
   { "tiny_image_extract", test_tiny_image_extract },
   { "invalid_input", test_invalid_input },
+  { "load_errors", test_load_errors },
   { "encoder_from_output_path", test_encoder_from_output_path },
   { "png_file", test_png_file },
   { "bmp_file", test_bmp_file }
