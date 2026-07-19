@@ -240,7 +240,7 @@ static void
 stegify_read_buffer_from_image_lsb(
   uint8_t *buffer,
   size_t buffer_size,
-  uint8_t *image_data,
+  const uint8_t *image_data,
   size_t *pos)
 {
   size_t byte_idx;
